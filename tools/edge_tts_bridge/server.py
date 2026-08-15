@@ -47,13 +47,42 @@ def _text_lang_to_voice(text_lang: str, ja_voice: str, zh_voice: str) -> str:
 
 
 async def _synthesize(text: str, voice: str, rate: str, volume: str, proxy: str | None) -> bytes:
-    """调用 edge-tts 合成，返回 wav 字节。"""
+    """调用 edge-tts 合成，返回 wav 字节（edge-tts 输出为 MP3，转为 WAV）。"""
     communicate = edge_tts.Communicate(text, voice, rate=rate, volume=volume, proxy=proxy)
     chunks: list[bytes] = []
     async for chunk in communicate.stream():
         if chunk["type"] == "audio":
             chunks.append(chunk["data"])
-    return b"".join(chunks)
+    audio = b"".join(chunks)
+    if audio[:4] == b"RIFF":
+        # 已经是 WAV（理论上 edge-tts 输出 MP3，这里做兼容）
+        return audio
+    return _mp3_to_wav(audio)
+
+
+def _mp3_to_wav(mp3_bytes: bytes) -> bytes:
+    """用 miniaudio 把 MP3 解码为 16bit PCM 的 WAV（Sakura 校验 RIFF 头）。"""
+    try:
+        import io
+        import wave
+
+        import miniaudio
+
+        decoded = miniaudio.decode(
+            mp3_bytes,
+            output_format=miniaudio.SampleFormat.SIGNED16,
+            nchannels=1,
+            sample_rate=24000,
+        )
+        buffer = io.BytesIO()
+        with wave.open(buffer, "wb") as wav_file:
+            wav_file.setnchannels(1)
+            wav_file.setsampwidth(2)
+            wav_file.setframerate(decoded.sample_rate)
+            wav_file.writeframes(decoded.samples)
+        return buffer.getvalue()
+    except Exception:  # noqa: BLE001 - 转换失败时原样返回，让 Sakura 自行判定
+        return mp3_bytes
 
 
 class Bridge:

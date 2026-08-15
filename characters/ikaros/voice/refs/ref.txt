@@ -1,0 +1,1 @@
+﻿voice/refs/tone_refs/neutral.ogg | ja | ご命令ですか、マスター。 | 中性
