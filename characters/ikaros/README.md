@@ -8,19 +8,27 @@
 characters/ikaros/
 ├── character.json              # 角色清单（manifest）
 ├── card.md                     # 人格卡（系统提示词核心）
-├── portraits/                  # 立绘
-│   ├── default.png             # 默认立绘（占位图）
-│   ├── curious.png             # 疑惑（占位图）
-│   ├── worried.png             # 担心（占位图）
-│   ├── happy.png               # 开心（占位图）
-│   └── angry.png               # 生气（占位图）
-└── make_placeholder_portraits.py  # 占位图生成脚本（PIL）
+├── portraits/                  # 立绘（本地个人素材，不入库）
+│   ├── default.png             # 默认立绘
+│   ├── curious.png             # 疑惑
+│   ├── worried.png             # 担心
+│   ├── happy.png               # 开心
+│   └── angry.png               # 生气
+└── make_placeholder_portraits.py  # 占位图生成脚本（PIL，MIT）
 ```
 
 ## 关于立绘（重要）
 
-仓库内 5 张立绘是**程序生成的占位图**（天使剪影风格，MIT 可自由使用），
-**不包含《天降之物》官方素材**（官方立绘/音乐受版权保护，请勿上传到本仓库）。
+**立绘为本地个人素材，不随仓库分发**（AI 生成或自绘，涉及角色形象的权利来源，
+请自行确认使用边界）。`portraits/` 目录已加入 `.gitignore`，即使放在工作区
+也不会被提交；参考音频 `voice/refs/tone_refs/` 同理。
+
+仓库内 `make_placeholder_portraits.py` 可生成 MIT 可自由使用的天使剪影占位图
+（无任何第三方角色元素），clone 后没有立绘时先跑它：
+
+```bash
+python characters/ikaros/make_placeholder_portraits.py
+```
 
 想要更还原的立绘，推荐两种方式：
 
