@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "log_poll_interval_seconds": 5,
+  "max_recent_events": 40,
+  "max_context_events": 12,
+  "dsh_home": "",
+  "workspace_keyword": "",
+  "speak_on_workflow_done": true,
+  "speak_on_goal_done": true,
+  "speak_on_tool_failed": true,
+  "speak_on_approval": true,
+  "passive_cooldown_seconds": 120,
+  "reactions": {
+    "workflow_done": "……主人交给 Agent 的工作完成了。",
+    "goal_done": "……主人想要完成的事情，达成了呢。",
+    "tool_failed": "主人……好像有什么东西出错了。需要我帮忙吗？",
+    "approval_asked": "……Agent 在等主人批准呢。"
+  }
+}

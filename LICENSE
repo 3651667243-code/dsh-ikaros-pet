@@ -1,0 +1,49 @@
+MIT License
+
+Copyright (c) 2026 ikaros-dsh-pet contributors
+
+本项目的角色包、插件、工具与文档（"ikaros-dsh-pet" 原创部分）
+采用 MIT License 授权，见下文。
+
+========================================================================
+ 重要：本项目是基于 Sakura Desktop Pet 框架的二次开发项目
+========================================================================
+
+Sakura Desktop Pet（https://github.com/Rvosy/Sakura）
+Copyright (c) 2026 Rvosy
+MIT License
+
+本项目使用了 Sakura Desktop Pet 的框架、运行时与插件系统：
+- 运行主体为 Sakura Desktop Pet（需单独获取，见 README「快速开始」）
+- 角色包、插件与工具均通过 Sakura 官方扩展点接入，不改动其核心代码
+
+Sakura 的 MIT License 文本：
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+========================================================================
+ 第三方与素材声明
+========================================================================
+
+1. 本项目不包含《天降之物》官方立绘、音乐等受版权保护的素材。
+   仓库内立绘为程序生成的占位图（见 characters/ikaros/make_placeholder_portraits.py），
+   可自由替换为你自绘或授权的素材。
+
+2. DeepSeek Harness（DSH）是独立开源项目，本项目仅以只读方式读取其
+   会话日志文件（~/.dsh/sessions/），不包含其任何代码。

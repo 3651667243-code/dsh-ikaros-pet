@@ -1,0 +1,45 @@
+{
+  "id": "ikaros",
+  "display_name": "伊卡洛斯",
+  "card": "card.md",
+  "portrait": {
+    "default": "portraits/default.png",
+    "expressions": {
+      "平静": "portraits/default.png",
+      "疑惑": "portraits/curious.png",
+      "担心": "portraits/worried.png",
+      "开心": "portraits/happy.png",
+      "生气": "portraits/angry.png"
+    }
+  },
+  "theme": {
+    "primary_color": "#f29bb4",
+    "primary_hover_color": "#e88aa5",
+    "accent_color": "#7fb8d8",
+    "text_color": "#5a3d4a",
+    "secondary_text_color": "#8a6b76",
+    "muted_text_color": "#b49aa2",
+    "page_background_color": "#fff0f5",
+    "panel_background_color": "#fff6f9",
+    "input_background_color": "#ffffff",
+    "bubble_background_color": "#ffe9f0",
+    "border_color": "#f0c4d2",
+    "ai_enabled": false,
+    "visual_effect_mode": "gaussian_blur"
+  },
+  "initial_message": "……伊卡洛斯，已确认与主人连接。有什么吩咐吗？",
+  "reply": {
+    "tones": [
+      "平静",
+      "疑惑",
+      "担心",
+      "开心",
+      "生气"
+    ]
+  },
+  "voice": {
+    "tone_refs": "伊卡洛斯：平静、疑惑、担心、开心、生气",
+    "ref_lang": "ja",
+    "text_lang": "ja"
+  }
+}
