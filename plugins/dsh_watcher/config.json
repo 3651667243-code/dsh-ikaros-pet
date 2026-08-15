@@ -4,7 +4,7 @@
   "max_recent_events": 40,
   "max_context_events": 12,
   "dsh_home": "",
-  "workspace_keyword": "",
+  "workspace_keyword": "ikaros",
   "speak_on_workflow_done": true,
   "speak_on_goal_done": true,
   "speak_on_tool_failed": true,

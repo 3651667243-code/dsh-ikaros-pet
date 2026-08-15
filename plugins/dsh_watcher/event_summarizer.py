@@ -150,9 +150,13 @@ def summarize_event(
 
     # ---- 目标 / 任务 ----
     if etype == "goal/change":
-        phase = _text(data.get("phase") or data.get("status"))
-        objective = _text(data.get("objective"), 40)
-        return SummarizedEvent(CATEGORY_GOAL_DONE, f"目标状态变为「{phase}」：{objective}", seq, time)
+        goal = data.get("goal") if isinstance(data.get("goal"), dict) else {}
+        operation = _text(data.get("operation") or goal.get("operation"))
+        phase = _text(goal.get("phase") or data.get("phase") or data.get("status"))
+        objective = _text(goal.get("objective") or data.get("objective"), 40)
+        if operation in ("complete", "completed", "done") or phase in ("complete", "completed"):
+            return SummarizedEvent(CATEGORY_GOAL_DONE, f"目标完成了：{objective}", seq, time)
+        return SummarizedEvent(CATEGORY_INFO, f"目标状态更新（{operation or phase}）：{objective}", seq, time)
     if etype == "todo/write":
         return SummarizedEvent(CATEGORY_INFO, "Agent 更新了任务清单。", seq, time)
 

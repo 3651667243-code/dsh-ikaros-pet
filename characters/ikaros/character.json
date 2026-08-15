@@ -6,7 +6,9 @@
     "default": "portraits/default.png",
     "expressions": {
       "平静": "portraits/default.png",
+      "中性": "portraits/default.png",
       "疑惑": "portraits/curious.png",
+      "困惑": "portraits/curious.png",
       "担心": "portraits/worried.png",
       "开心": "portraits/happy.png",
       "生气": "portraits/angry.png"
@@ -32,6 +34,7 @@
     "tones": [
       "平静",
       "疑惑",
+      "困惑",
       "担心",
       "开心",
       "生气"
