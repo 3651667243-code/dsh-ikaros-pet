@@ -137,12 +137,14 @@ def summarize_event(
 
     # ---- 工作流 ----
     if etype == "tool-workflow/run-start":
-        meta = data.get("meta") or {}
+        meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
         name = _text(meta.get("name") or data.get("name"), 30)
         return SummarizedEvent(CATEGORY_INFO, f"主人启动了一个工作流：「{name}」", seq, time)
     if etype == "tool-workflow/run-end":
-        status = _text(data.get("status") or data.get("error") or "完成", 30)
-        return SummarizedEvent(CATEGORY_WORKFLOW_DONE, f"工作流结束了：{status}", seq, time)
+        stop_reason = _text(data.get("stopReason") or data.get("status") or data.get("error") or "completed")
+        if str(stop_reason).lower() in ("completed", "success", "done", "完成"):
+            return SummarizedEvent(CATEGORY_WORKFLOW_DONE, "工作流结束了：完成", seq, time)
+        return SummarizedEvent(CATEGORY_TOOL_FAILED, f"工作流结束了：{stop_reason}", seq, time)
     if etype == "tool-workflow/agent-start":
         return SummarizedEvent(CATEGORY_INFO, "工作流派出一个子代理开始干活。", seq, time)
     if etype == "tool-workflow/agent-end":

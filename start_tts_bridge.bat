@@ -1,17 +1,15 @@
 @echo off
 chcp 65001 >nul
 REM ============================================================
-REM  启动 edge-tts 语音桥（Sakura 的 GPT-SoVITS 兼容外置 TTS）
-REM  用法：start_tts_bridge.bat [--proxy http://127.0.0.1:7890]
-REM  网络受限时加上面的 --proxy 参数
+REM  启动 VITS 语音桥（WSL 内运行，伊卡洛斯声线）
+REM  前置：WSL Ubuntu 已配置（见 docs/SETUP.md 的 WSL 部署章节）
 REM ============================================================
 
 set "BASE_DIR=%~dp0"
 
-REM 优先用 Sakura 运行时，其次系统 python
-set "PYTHON_EXE=%BASE_DIR%..\Sakura\runtime\python.exe"
-if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"
-
-echo [ikaros-dsh-pet] 启动 edge-tts 语音桥 (127.0.0.1:9880) ...
-"%PYTHON_EXE%" "%BASE_DIR%server.py" %*
+echo [ikaros-dsh-pet] 启动 VITS 语音桥 (WSL, 127.0.0.1:9880) ...
+start "IkarosVITSBridge" /min wsl.exe -d Ubuntu-D -e bash "%BASE_DIR%tools\edge_tts_bridge\wsl_run_vits.sh"
+timeout /t 5 /nobreak >nul
+echo.
+echo 桥已启动。在 Sakura 设置中将 TTS 指向 http://127.0.0.1:9880/tts
 pause

@@ -60,6 +60,7 @@ class IkarosVITS:
         self._text_to_sequence = None
         self._speaker_id = 0  # config.speakers["ikaros"]
         self._ready = False
+        self._load_error: str | None = None
 
     def ensure_ready(self) -> None:
         if self._ready:
@@ -67,7 +68,22 @@ class IkarosVITS:
         with self._lock:
             if self._ready:
                 return
-            self._load()
+            if self._load_error is not None:
+                return  # 加载已失败：不再反复重试（health 返回 503 说明原因）
+            try:
+                self._load()
+            except Exception as exc:  # noqa: BLE001
+                self._load_error = str(exc)
+                import traceback
+
+                traceback.print_exc()
+                print(f"[vits] 模型加载失败：{exc}")
+                print("[vits] 请确认模型文件存在：", MODEL_PATH)
+                print("[vits] 若使用 cuda 失败，可用 --device cpu 重试")
+
+    @property
+    def ready(self) -> bool:
+        return self._ready
 
     def _load(self) -> None:
         print("[vits] 加载伊卡洛斯模型...")
@@ -183,7 +199,16 @@ def main() -> int:
         (_Handler,),
         {"vits": vits},
     )
-    server = ThreadingHTTPServer((args.host, args.port), handler)
+    try:
+        server = ThreadingHTTPServer((args.host, args.port), handler)
+    except OSError as exc:
+        print(
+            f"[vits] 启动失败：端口 {args.port} 被占用（{exc}）。\n"
+            f"[vits] 可能有实例已在运行：netstat -ano | findstr :{args.port}\n"
+            f"[vits] 或换端口重试：--port 9881"
+        )
+        return 1
+    server.timeout = 0.5  # serve_forever 轮询间隔，配合 socket 超时
     print(f"[vits] 伊卡洛斯语音桥就绪：http://{args.host}:{args.port}/tts (设备={args.device})")
     print("[vits] 在 Sakura 设置中将 TTS 指向该地址即可使用。Ctrl+C 退出。")
     try:
@@ -219,7 +244,13 @@ class _Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:  # noqa: N802
         path = urllib.parse.urlparse(self.path).path
         if path in ("/", "/health"):
-            self._send_text(200, "ok")
+            vits = getattr(self, "vits", None)
+            ready = vits is not None and vits.ready
+            error = getattr(vits, "load_error", "") if vits is not None else ""
+            if ready:
+                self._send_text(200, "ok")
+            else:
+                self._send_json(503, {"success": False, "message": f"模型未就绪：{error}"})
         elif path in ("/set_gpt_weights", "/set_sovits_weights"):
             self._send_json(200, {"success": True, "code": 0})
         else:
@@ -231,9 +262,16 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_text(404, "not found")
             return
         try:
-            length = int(self.headers.get("Content-Length") or 0)
+            raw_length = self.headers.get("Content-Length")
+            length = int(raw_length) if raw_length else 0
+            if length < 0 or length > 2 * 1024 * 1024:
+                self._send_json(413, {"success": False, "message": "request body too large"})
+                return
             raw = self.rfile.read(length) if length else b"{}"
             payload = json.loads(raw.decode("utf-8"))
+            if not isinstance(payload, dict):
+                self._send_json(400, {"success": False, "message": "payload must be a JSON object"})
+                return
         except (ValueError, UnicodeDecodeError) as exc:
             self._send_json(400, {"success": False, "message": f"bad request: {exc}"})
             return
@@ -242,14 +280,14 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_json(400, {"success": False, "message": "empty text"})
             return
         text_lang = str(payload.get("text_lang") or "ja")
-        print(f"[vits] TTS 文本: {text!r} (text_lang={text_lang})", flush=True)
+        print(f"[vits] TTS 文本: {text[:40]!r}... (text_lang={text_lang})", flush=True)
         try:
             audio = self.vits.synthesize(text, text_lang)
         except Exception as exc:  # noqa: BLE001
             import traceback
 
             traceback.print_exc()
-            self._send_json(500, {"success": False, "message": str(exc)})
+            self._send_json(500, {"success": False, "message": "TTS 合成失败"})
             return
         if not audio:
             self._send_json(500, {"success": False, "message": "empty audio"})

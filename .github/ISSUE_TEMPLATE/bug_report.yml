@@ -1,0 +1,101 @@
+name: 报告 Bug
+description: 提交一个问题反馈，帮助我们改进项目
+title: "[Bug]: "
+labels: ["bug"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug 报告
+
+        感谢反馈！请尽量填写完整，能复现的问题更容易被修复。
+        ⚠️ **粘贴日志/配置前请先隐去 API Key 等敏感信息。**
+  - type: input
+    id: windows
+    attributes:
+      label: Windows 版本
+      description: 例如 Windows 11 23H2 / Windows 10 22H2
+      placeholder: 如 Windows 11 23H2
+    validations:
+      required: true
+  - type: input
+    id: sakura
+    attributes:
+      label: Sakura 版本
+      description: Sakura Desktop Pet Release 的版本号或下载时间
+      placeholder: 如 0.x.x（2025-xx 下载）
+    validations:
+      required: true
+  - type: dropdown
+    id: wsl
+    attributes:
+      label: 是否使用 WSL（VITS 桥）
+      description: 语音桥有两种：edge-tts 桥（Windows 直接跑）与 VITS 桥（wsl_run_vits.sh 在 WSL 内跑）
+      options:
+        - 否（使用 edge-tts 桥）
+        - 是（vits_server.py 在 WSL 中运行）
+        - 不确定
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？影响到了哪个环节（安装 / 插件 / 语音 / 对话）？
+      placeholder: 一句话说清现象
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 一步步描述如何复现问题
+      placeholder: |
+        1. 运行 install.bat
+        2. 启动 start_tts_bridge.bat
+        3. 启动 Sakura 并选择伊卡洛斯角色
+        4. ……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 预期行为
+      description: 你期望的正确结果是什么
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际行为
+      description: 实际发生了什么
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: |
+        请粘贴 `data/logs/sakura-runtime.log` 中与问题相关的关键片段（Sakura 安装目录下），
+        例如 `PluginUI` / `PluginTTS` / `PluginAgent` 记录或报错堆栈。**不需要完整文件**，
+        注意隐去 API Key 等敏感信息。
+      placeholder: 粘贴日志片段……
+      render: text
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: 截图（可选）
+      description: 界面、日志或报错截图，可直接拖拽图片到此处
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      description: 提交前请逐项确认
+      options:
+        - label: 我已按 README / docs/SETUP.md 完成安装与配置
+          required: false
+        - label: 粘贴的日志/配置中已隐去 API Key 等敏感信息
+          required: true
+        - label: 我已搜索过现有 Issue，确认没有重复
+          required: true

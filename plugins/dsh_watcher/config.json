@@ -11,9 +11,9 @@
   "speak_on_approval": true,
   "passive_cooldown_seconds": 120,
   "reactions": {
-    "workflow_done": "……主人交给 Agent 的工作完成了。",
-    "goal_done": "……主人想要完成的事情，达成了呢。",
-    "tool_failed": "主人……好像有什么东西出错了。需要我帮忙吗？",
-    "approval_asked": "……Agent 在等主人批准呢。"
+    "workflow_done": "……お仕事、完了しました、マスター。",
+    "goal_done": "……成し遂げましたね、マスター。",
+    "tool_failed": "マスター……何か、壊れたみたいです。お手伝いしましょうか？",
+    "approval_asked": "……エージェントがマスターの承認を待っています。"
   }
 }

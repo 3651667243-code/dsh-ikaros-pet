@@ -1,0 +1,47 @@
+name: 功能请求
+description: 提出一个新功能或改进建议
+title: "[Feature]: "
+labels: ["enhancement"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ✨ 功能请求
+
+        感谢你的建议！请说明**为什么需要**和**期望怎么实现**，描述越具体越容易被采纳。
+  - type: textarea
+    id: motivation
+    attributes:
+      label: 动机
+      description: 为什么需要这个功能？解决了什么痛点？可以描述使用场景
+      placeholder: 例如：希望伊卡洛斯在会话空闲时主动汇报进度……
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 方案描述
+      description: 你希望怎么实现？可涉及插件（dsh_watcher）、角色包、TTS 桥或脚本
+      placeholder: 描述功能行为、触发条件、配置项等
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 备选方案
+      description: 其他可选的实现方式或现有功能的部分替代
+      placeholder: 例如：也可以做成 config.json 里的开关，默认关闭
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收标准
+      description: 怎样算完成？列出可勾选的检查项或行为描述
+      placeholder: |
+        - [ ] 在 X 场景下触发
+        - [ ] 不破坏现有主动发言冷却机制
+        - [ ] 新增配置项写入 config.json 并有文档说明
+    validations:
+      required: true

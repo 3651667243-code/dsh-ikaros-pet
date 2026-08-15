@@ -42,6 +42,20 @@ from .event_summarizer import (
 
 log = logging.getLogger("dsh_watcher")
 
+
+def _safe_int(value: Any, default: int, minimum: int = 1) -> int:
+    try:
+        return max(minimum, int(value))
+    except (TypeError, ValueError):
+        return default
+
+
+def _safe_float(value: Any, default: float, minimum: float = 1.0) -> float:
+    try:
+        return max(minimum, float(value))
+    except (TypeError, ValueError):
+        return default
+
 # 事件类别 → 插件配置里的发言开关
 _CATEGORY_TO_CONFIG_KEY = {
     CATEGORY_WORKFLOW_DONE: "speak_on_workflow_done",
@@ -116,34 +130,40 @@ class DshWatcherPlugin(PluginBase):
             return
         with self._lock:
             self._recent.append(summarized)
-            max_recent = int(self._config.get("max_recent_events", 40))
+            max_recent = _safe_int(self._config.get("max_recent_events"), 40, minimum=1)
             if len(self._recent) > max_recent:
                 self._recent = self._recent[-max_recent:]
-            self._maybe_speak_locked(summarized)
+            speak = self._maybe_speak_locked(summarized)
+        # 锁外调用宿主服务，避免持锁跨线程 marshal（潜在重入死锁）
+        if speak is not None:
+            try:
+                self._context.services.agent.request_passive_reply(
+                    speak[0],
+                    {"dsh_event": speak[1], "suggested_line": speak[2]},
+                )
+            except Exception as exc:  # noqa: BLE001
+                log.warning("请求主动发言失败：%s", exc)
 
-    def _maybe_speak_locked(self, event: SummarizedEvent) -> None:
-        """关键节点到达时立即请求主动发言（带冷却与启动保护）。"""
+    def _maybe_speak_locked(self, event: SummarizedEvent) -> tuple[str, str, str] | None:
+        """关键节点到达时判定是否发言（带冷却与启动保护）；返回发言载荷或 None。"""
         if time.time() < getattr(self, "_speak_ready_at", 0.0):
-            return  # 启动保护：回放的历史事件不触发发言，避免占用冷却
+            return None  # 启动保护：回放的历史事件不触发发言，避免占用冷却
         if not bool(self._config.get("enabled", True)):
-            return
+            return None
         key = _CATEGORY_TO_CONFIG_KEY.get(event.category)
         if key is None or not bool(self._config.get(key, True)):
-            return
+            return None
         now = time.time()
-        cooldown = float(self._config.get("passive_cooldown_seconds", 120))
+        cooldown = _safe_float(self._config.get("passive_cooldown_seconds"), 120.0, minimum=1.0)
         if now - self._last_passive_at < cooldown:
-            return
+            return None
         reaction_key = _CATEGORY_TO_REACTION_KEY.get(event.category)
-        line = str(self._config.get("reactions", {}).get(reaction_key, ""))
+        reactions = self._config.get("reactions")
+        line = ""
+        if isinstance(reactions, dict):
+            line = str(reactions.get(reaction_key, ""))
         self._last_passive_at = now
-        try:
-            self._context.services.agent.request_passive_reply(
-                f"DSH 事件：{event.summary}",
-                {"dsh_event": event.summary, "suggested_line": line},
-            )
-        except Exception as exc:  # noqa: BLE001
-            log.warning("请求主动发言失败：%s", exc)
+        return (f"DSH 事件：{event.summary}", event.summary, line)
 
     # ---- 上下文注入 ----
 
