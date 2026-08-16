@@ -100,6 +100,19 @@ def _handle_plugin_passive_reply(self, reason: str, context: object) -> None:
     if self.worker_thread is not None or self.active_event is not None:
         log_event("PluginAgent", "桌宠忙，跳过主动发言", {"reason": reason})
         return
+    # 用户刚交互（发消息/点选等）后 30 秒内不主动开口，避免与对话抢答、制造重复回复
+    try:
+        now = time.perf_counter()
+        last_activity = getattr(self, "last_user_activity_at", 0.0)
+        if last_activity and now - last_activity < 30.0:
+            log_event(
+                "PluginAgent",
+                "用户刚交互，跳过主动发言",
+                {"reason": reason, "seconds_since_activity": int(now - last_activity)},
+            )
+            return
+    except Exception:
+        pass
     try:
         from app.agent.actions import AgentEvent
 
@@ -121,9 +134,37 @@ def _handle_plugin_passive_reply(self, reason: str, context: object) -> None:
 ```
 
 **效果**：`dsh_watcher` 插件检测到 DSH 关键节点（目标完成 / 工具失败 / 等待授权）时，
-能触发伊卡洛斯主动开口（角色化回复 + 字幕 + 立绘 + TTS 语音）。
+能触发伊卡洛斯主动开口（角色化回复 + 字幕 + 立绘 + TTS 语音）；用户刚交互后的
+30 秒内不会抢答。
 
-## 2. 双语字幕显示（`app/llm/chat_reply.py`）
+## 2. 主动事件回复不写入对话历史（`app/ui/pet_window.py`）
+
+**文件**：`<Sakura>/app/ui/pet_window.py`
+
+**背景**：主动事件（被动发言 / 主动感知）的回复原本与正常对话一样写入
+`chat_history`，导致下次对话时这些「无对应用户消息的旁白」进入 LLM 上下文，
+模型会惯性延续/重复自己说过的话——表现为「很久没对话后再对话会重复回复」。
+
+**补丁内容**：`_handle_event_reply` 与 `_handle_event_error` 中改为不写历史
+（气泡与语音展示不受影响，仅不进对话历史）：
+
+```python
+# _handle_event_reply 内（原为 self._consume_agent_result(result)）：
+self._consume_agent_result(result, record_history=False)
+
+# _handle_event_error 的 reminder 兜底分支：
+self._consume_agent_result(result, record_history=False)
+```
+
+**配合**：`plugins/dsh_watcher/plugin.py` 新增 `passive_dedup_seconds`（默认 600）：
+相同事件摘要指纹在窗口内不重复触发主动发言，避免长时间静默期对相似 DSH 事件
+反复开口；同一事件 seq 也不重复发言（防重放）。配置项：
+
+```json
+{ "passive_dedup_seconds": 600 }
+```
+
+## 3. 双语字幕显示（`app/llm/chat_reply.py`）
 
 **文件**：`<Sakura>/app/llm/chat_reply.py`
 
@@ -146,7 +187,7 @@ def display_text(self, subtitle_language: str) -> str:
     return self.text
 ```
 
-## 3. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
+## 4. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
 
 **背景**：Sakura 的 GPT-SoVITS TTS 校验要求存在默认参考音频
 （`data/config/api.yaml` 的 `tts.gpt_sovits` 未显式配置时，默认指向
@@ -165,5 +206,5 @@ def display_text(self, subtitle_language: str) -> str:
 
 ## 应用方式
 
-每次升级/重装 Sakura Release 后，按上面三处重新应用即可。
+每次升级/重装 Sakura Release 后，按上面四处重新应用即可。
 `install.bat` 已负责复制角色包、插件与 TTS 桥；补丁需手动或按需执行。

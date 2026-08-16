@@ -10,6 +10,7 @@
   "speak_on_tool_failed": true,
   "speak_on_approval": true,
   "passive_cooldown_seconds": 120,
+  "passive_dedup_seconds": 600,
   "reactions": {
     "workflow_done": "……お仕事、完了しました、マスター。",
     "goal_done": "……成し遂げましたね、マスター。",

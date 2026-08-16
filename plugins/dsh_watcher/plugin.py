@@ -88,6 +88,9 @@ class DshWatcherPlugin(PluginBase):
         self._recent: list[SummarizedEvent] = []
         self._last_passive_at = 0.0
         self._tool_names: dict[str, str] = {}
+        # 重复发言抑制：已发言的 seq（防重放）与摘要指纹（防相似事件反复开口）
+        self._spoken_seqs: set[int] = set()
+        self._spoken_summary_at: dict[str, float] = {}
         # 启动保护：回放的历史事件只进上下文、不触发发言，避免占用冷却
         self._speak_ready_at = time.time() + 30.0
 
@@ -145,7 +148,7 @@ class DshWatcherPlugin(PluginBase):
                 log.warning("请求主动发言失败：%s", exc)
 
     def _maybe_speak_locked(self, event: SummarizedEvent) -> tuple[str, str, str] | None:
-        """关键节点到达时判定是否发言（带冷却与启动保护）；返回发言载荷或 None。"""
+        """关键节点到达时判定是否发言（带冷却、去重与启动保护）；返回发言载荷或 None。"""
         if time.time() < getattr(self, "_speak_ready_at", 0.0):
             return None  # 启动保护：回放的历史事件不触发发言，避免占用冷却
         if not bool(self._config.get("enabled", True)):
@@ -154,6 +157,17 @@ class DshWatcherPlugin(PluginBase):
         if key is None or not bool(self._config.get(key, True)):
             return None
         now = time.time()
+        # 同一事件（seq）不重复发言（防重放）
+        if event.seq and event.seq in self._spoken_seqs:
+            return None
+        # 相同摘要指纹在去重窗口内不重复发言（防相似事件反复开口造成"重复回复"）
+        dedup_seconds = _safe_float(
+            self._config.get("passive_dedup_seconds"), 600.0, minimum=1.0
+        )
+        fingerprint = event.summary
+        if fingerprint and fingerprint in self._spoken_summary_at:
+            if now - self._spoken_summary_at[fingerprint] < dedup_seconds:
+                return None
         cooldown = _safe_float(self._config.get("passive_cooldown_seconds"), 120.0, minimum=1.0)
         if now - self._last_passive_at < cooldown:
             return None
@@ -163,6 +177,16 @@ class DshWatcherPlugin(PluginBase):
         if isinstance(reactions, dict):
             line = str(reactions.get(reaction_key, ""))
         self._last_passive_at = now
+        if event.seq:
+            self._spoken_seqs.add(event.seq)
+            if len(self._spoken_seqs) > 200:
+                self._spoken_seqs = set(list(self._spoken_seqs)[-200:])
+        if fingerprint:
+            self._spoken_summary_at[fingerprint] = now
+            if len(self._spoken_summary_at) > 100:
+                oldest = sorted(self._spoken_summary_at.items(), key=lambda kv: kv[1])
+                for k, _ in oldest[:50]:
+                    self._spoken_summary_at.pop(k, None)
         return (f"DSH 事件：{event.summary}", event.summary, line)
 
     # ---- 上下文注入 ----
