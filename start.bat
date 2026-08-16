@@ -1,14 +1,14 @@
 @echo off
 chcp 65001 >nul
 REM ============================================================
-REM  启动 ikaros-dsh-pet（Sakura 桌宠）
-REM  1. 先确保 TTS 桥已启动（另开窗口运行 start_tts_bridge.bat）
-REM  2. 再启动 Sakura
+REM  Start ikaros-dsh-pet (Sakura desktop pet)
+REM  1. Start the TTS bridge first (start_tts_bridge.bat)
+REM  2. Then start Sakura
 REM ============================================================
 
 set "BASE_DIR=%~dp0"
 
-REM 如果本仓库与 Sakura 相邻，直接进 Sakura 启动
+REM If this repo sits next to Sakura, launch Sakura directly
 if exist "%BASE_DIR%..\Sakura\main.py" (
     cd /d "%BASE_DIR%..\Sakura"
 ) else (
@@ -16,8 +16,8 @@ if exist "%BASE_DIR%..\Sakura\main.py" (
 )
 
 if not exist "main.py" (
-    echo [错误] 未找到 Sakura 的 main.py
-    echo        请确认本仓库放在 Sakura 目录旁边，或先执行 install.bat
+    echo [ERROR] Sakura main.py not found.
+    echo         Put this repo next to the Sakura folder, or run install.bat first.
     pause
     exit /b 1
 )
@@ -25,6 +25,6 @@ if not exist "main.py" (
 set "PYTHON_EXE=runtime\python.exe"
 if not exist "%PYTHON_EXE%" set "PYTHON_EXE=python"
 
-echo [ikaros-dsh-pet] 启动 Sakura Desktop Pet ...
+echo [ikaros-dsh-pet] Starting Sakura Desktop Pet ...
 "%PYTHON_EXE%" main.py
 pause

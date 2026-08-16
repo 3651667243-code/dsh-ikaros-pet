@@ -19,6 +19,10 @@ logs/
 characters/**/portraits/
 characters/**/voice/refs/tone_refs/
 
+# VITS 模型权重（声线模型，不入库；用 tools/edge_tts_bridge/download_model.py 下载）
+*.pth
+tools/edge_tts_bridge/vits/saved_model/*/model.pth
+
 # 密钥与凭据
 .env
 .env.*
