@@ -191,7 +191,8 @@ Sakura\runtime\python.exe Sakura\tools\edge_tts_bridge\server.py
 
 **退出与重启**：正常关闭 Sakura 即自动联动关闭（语音桥停止、守护任务禁用）；
 再次启动用桌面「伊卡洛斯桌宠」快捷方式（自动恢复守护并启动桥与桌宠），
-或运行 `stop-pet.bat` 手动全关。详见 README「快速开始」第 6/8 步。
+或运行 `stop-pet.bat` 手动全关。语音桥守护任务以隐藏窗口方式运行
+（wscript 包装，不会弹出终端窗口）。详见 README「快速开始」第 6/8 步。
 
 ## 8. 立绘说明（个人素材，不入库）
 
