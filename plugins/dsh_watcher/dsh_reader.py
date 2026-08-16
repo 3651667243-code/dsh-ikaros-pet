@@ -86,11 +86,12 @@ def find_latest_session_log(dsh_home: Path, workspace_keyword: str = "") -> Path
 
     if workspace_keyword:
         keyword = workspace_keyword.replace("\\", "/").lower()
-        matching = [
+        candidates = [
             p for p in candidates if keyword.lower() in p.as_posix().lower()
         ]
-        if matching:
-            candidates = matching
+        # 严格匹配：无匹配会话时保持静默，绝不回退读取其他工作区的会话
+        if not candidates:
+            return None
 
     if not candidates:
         return None
@@ -294,6 +295,10 @@ class DSHLogReader:
 
         frames, torn_start = scan_zstd_frames(tail)
         complete_end = torn_start if torn_start is not None else len(tail)
+        # 本次投递文本的结束偏移：正常路径从旧 offset 前进；损坏回退路径以
+        # 全文件最后一个完整帧末尾为基准（不能用旧的 complete_end 累加，否则
+        # offset 倒退导致重复读取/反复全量回退）
+        next_offset = state.offset + complete_end
         try:
             text = decode_frames(tail[:complete_end])
         except zstd.ZstdError:
@@ -303,9 +308,10 @@ class DSHLogReader:
                 with open(path, "rb") as fh:
                     whole = fh.read()
                 frames0, torn0 = scan_zstd_frames(whole)
-                text = decode_frames(whole[: (torn0 or len(whole))])
+                whole_end = torn0 if torn0 is not None else len(whole)
+                text = decode_frames(whole[:whole_end])
+                next_offset = whole_end
                 state.first_seen = True
-                state.offset = 0
                 state.last_seq = -1
                 state.seen.clear()
             except (zstd.ZstdError, OSError):
@@ -319,7 +325,10 @@ class DSHLogReader:
             events = events[-self.max_initial_events :]
         fresh = 0
         for event in events:
-            seq = int(event.get("seq") or -1)
+            try:
+                seq = int(event.get("seq") or -1)
+            except (TypeError, ValueError):
+                seq = -1  # 非法 seq 视为缺失值，绝不中断轮询
             if seq >= 0:
                 if seq <= state.last_seq:
                     continue
@@ -337,6 +346,6 @@ class DSHLogReader:
                 log.warning("事件回调异常：%s", exc)
             fresh += 1
         state.first_seen = False
-        state.offset += complete_end
+        state.offset = next_offset
         if fresh:
             log.debug("会话 %s 新增事件 %d 条", path.name, fresh)

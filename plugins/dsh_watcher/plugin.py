@@ -113,9 +113,16 @@ class DshWatcherPlugin(PluginBase):
             ),
             max_initial_events=int(self._config.get("max_recent_events", 40)),
         )
-        self._reader = reader
-        reader.start()
-        context.log("DSH Watcher 已启动", {"dsh_home": str(reader.dsh_home)})
+        # 隐私开关：enabled=false 时不启动读取线程，且上下文注入返回空——
+        # 配置关闭就是真正关闭监听（README/SECURITY 承诺的行为）
+        self._reader_enabled = bool(self._config.get("enabled", True))
+        if self._reader_enabled:
+            self._reader = reader
+            reader.start()
+            context.log("DSH Watcher 已启动", {"dsh_home": str(reader.dsh_home)})
+        else:
+            self._reader = None
+            context.log("DSH Watcher 已禁用（enabled=false，不读取 DSH 日志）")
 
     def shutdown(self) -> None:
         reader = getattr(self, "_reader", None)
@@ -123,7 +130,6 @@ class DshWatcherPlugin(PluginBase):
             reader.stop()
             self._reader = None
         self._context.log("DSH Watcher 已停止")
-
     # ---- 事件处理（后台线程调用，保持轻量） ----
 
     def _on_event(self, event: dict[str, Any]) -> None:
@@ -192,12 +198,16 @@ class DshWatcherPlugin(PluginBase):
     # ---- 上下文注入 ----
 
     def _build_context(self, request: ContextRequest):
+        if not getattr(self, "_reader_enabled", True):
+            return []  # 隐私开关：禁用时不注入任何 DSH 内容
         with self._lock:
             events = list(self._recent)
         if not events:
             return []
 
         max_events = int(self._config.get("max_context_events", 12))
+        if max_events <= 0:
+            return []  # 0 或负数：不注入（避免 events[-0:] 取全量）
         lines = [f"- {e.summary}" for e in events[-max_events:]]
         content = (
             "以下是主人桌面上的 DeepSeek Harness 最近发生的事"

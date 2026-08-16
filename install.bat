@@ -39,16 +39,28 @@ echo [1/4] Sakura 目录: %SAKURA_DIR%
 REM ---- 2. 复制角色包 ----
 if not exist "%SAKURA_DIR%\characters" mkdir "%SAKURA_DIR%\characters"
 xcopy /E /I /Y "%BASE_DIR%characters\ikaros" "%SAKURA_DIR%\characters\ikaros" >nul
+if errorlevel 1 (
+    echo [错误] 角色包复制失败，安装中止。
+    exit /b 1
+)
 echo [2/4] 角色包 ikaros 已安装。
 
 REM ---- 3. 复制插件 ----
 if not exist "%SAKURA_DIR%\plugins" mkdir "%SAKURA_DIR%\plugins"
 xcopy /E /I /Y "%BASE_DIR%plugins\dsh_watcher" "%SAKURA_DIR%\plugins\dsh_watcher" >nul
+if errorlevel 1 (
+    echo [错误] 插件复制失败，安装中止。
+    exit /b 1
+)
 echo [3/4] 插件 dsh_watcher 已安装。
 
 REM ---- 4. 复制 TTS 桥 ----
 if not exist "%SAKURA_DIR%\tools\edge_tts_bridge" mkdir "%SAKURA_DIR%\tools\edge_tts_bridge"
 xcopy /E /I /Y "%BASE_DIR%tools\edge_tts_bridge" "%SAKURA_DIR%\tools\edge_tts_bridge" >nul
+if errorlevel 1 (
+    echo [错误] TTS 桥复制失败，安装中止。
+    exit /b 1
+)
 echo [4/4] TTS 桥已安装。
 
 REM ---- 5. 安装 Python 依赖到 Sakura 运行时 ----
@@ -58,10 +70,14 @@ if not exist "%PYTHON_EXE%" (
     echo [提示] 未找到 %PYTHON_EXE%
     echo        请确认 Sakura 已解压完整 Release 包（含 runtime 目录）。
     echo        依赖安装请手动执行：
-    echo        "%SAKURA_DIR%\runtime\python.exe" -m pip install zstandard edge-tts
+    echo        "%SAKURA_DIR%\runtime\python.exe" -m pip install -r "%BASE_DIR%tools\edge_tts_bridge\requirements.txt"
 ) else (
-    echo [5/4] 安装依赖 (zstandard, edge-tts) ...
-    "%PYTHON_EXE%" -m pip install zstandard edge-tts
+    echo [5/4] 安装依赖 (edge-tts, zstandard, miniaudio) ...
+    "%PYTHON_EXE%" -m pip install -r "%BASE_DIR%tools\edge_tts_bridge\requirements.txt"
+    if errorlevel 1 (
+        echo [错误] 依赖安装失败，请检查网络后重试。
+        exit /b 1
+    )
 )
 
 echo.

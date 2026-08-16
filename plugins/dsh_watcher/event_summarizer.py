@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import re as _re
 from dataclasses import dataclass
 from typing import Any
 
@@ -33,6 +34,27 @@ def _text(value: Any, limit: int = 40) -> str:
     text = str(value).strip().replace("\n", " ").replace("\r", " ")
     if len(text) > limit:
         text = text[:limit] + "…"
+    return text
+
+
+# 敏感模式遮盖：注入 LLM 上下文前先脱敏（截断 ≠ 脱敏，密钥若在开头仍会泄露）
+_REDACT_PATTERNS = (
+    (_re.compile(r"(sk-[A-Za-z0-9]{8,})"), "<sk-key>"),
+    (_re.compile(r"(github_pat_[A-Za-z0-9_]{20,})"), "<gh-token>"),
+    (_re.compile(r"(ghp_[A-Za-z0-9]{20,})"), "<gh-token>"),
+    (_re.compile(r"(Bearer\s+[A-Za-z0-9._-]{12,})", _re.IGNORECASE), "<bearer>"),
+    (_re.compile(r"([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})"), "<email>"),
+    (_re.compile(r"(?i)(api[_-]?key|password|secret|token)\s*[=:]\s*[^\s,;}\"']{6,}"),
+     lambda m: m.group(0).split("=")[0].split(":")[0] + "=<redacted>"),
+)
+
+
+def _redact(text: str) -> str:
+    """对进入桌宠 LLM 上下文的文本做密钥/邮箱/路径类遮盖。"""
+    if not text:
+        return text
+    for pattern, repl in _REDACT_PATTERNS:
+        text = pattern.sub(repl, text)
     return text
 
 
@@ -83,7 +105,10 @@ def summarize_event(
 
     etype = str(event.get("type") or "")
     data = _data(event)
-    seq = int(event.get("seq") or 0)
+    try:
+        seq = int(event.get("seq") or 0)
+    except (TypeError, ValueError):
+        seq = 0  # 非法 seq 视为缺失值
     time = _text(event.get("time") or "", 24)
     call_id = _text(data.get("callId"), 64)
 
@@ -96,7 +121,7 @@ def summarize_event(
                 if isinstance(block, dict) and block.get("type") == "text":
                     text = str(block.get("text") or "")
                     break
-        return SummarizedEvent(CATEGORY_INFO, f"主人发来消息：「{_text(text)}」", seq, time)
+        return SummarizedEvent(CATEGORY_INFO, f"主人发来消息：「{_redact(_text(text))}」", seq, time)
     if etype == "assistant/message":
         return SummarizedEvent(CATEGORY_INFO, "Agent 完成了一次回复。", seq, time)
 
@@ -115,10 +140,11 @@ def summarize_event(
         name = _text(data.get("name"))
         if tool_names is not None and call_id:
             tool_names[call_id] = name
-        args = _text(data.get("arguments"), 60)
+        args = _redact(_text(data.get("arguments"), 60))
         return SummarizedEvent(CATEGORY_INFO, f"Agent 正在调用工具 {name}（{args}）", seq, time)
     if etype == "tool/result":
         name = _text(data.get("name") or data.get("toolName"))
+        result_call_id = ""
         if not name:
             # tool/result 的 callId 在 data.message.source.callId 里
             message = data.get("message")
@@ -130,7 +156,11 @@ def summarize_event(
             )
             if tool_names is not None and result_call_id:
                 name = tool_names.get(result_call_id, "")
+        # 结果已消费：清理 callId → 工具名 映射，防止长时间运行无界增长
+        if tool_names is not None and result_call_id:
+            tool_names.pop(result_call_id, None)
         ok, detail = _tool_result_details(data)
+        detail = _redact(detail)
         if ok:
             return SummarizedEvent(CATEGORY_INFO, f"工具 {name} 执行成功。", seq, time)
         return SummarizedEvent(CATEGORY_TOOL_FAILED, f"工具 {name} 执行失败：{detail}", seq, time)
@@ -155,7 +185,7 @@ def summarize_event(
         goal = data.get("goal") if isinstance(data.get("goal"), dict) else {}
         operation = _text(data.get("operation") or goal.get("operation"))
         phase = _text(goal.get("phase") or data.get("phase") or data.get("status"))
-        objective = _text(goal.get("objective") or data.get("objective"), 40)
+        objective = _redact(_text(goal.get("objective") or data.get("objective"), 40))
         if operation in ("complete", "completed", "done") or phase in ("complete", "completed"):
             return SummarizedEvent(CATEGORY_GOAL_DONE, f"目标完成了：{objective}", seq, time)
         return SummarizedEvent(CATEGORY_INFO, f"目标状态更新（{operation or phase}）：{objective}", seq, time)

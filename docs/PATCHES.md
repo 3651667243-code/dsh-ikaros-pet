@@ -277,9 +277,10 @@ SolidWorks/建模/长时间作业→提醒休息），默认指令与角色卡�
 <空文件或任意字节>  <Sakura>/ref/VO01_2210.ogg
 ```
 
-角色包内已提供合法参考音频配置（`characters/ikaros/voice/refs/ref.txt` +
-`tone_refs/neutral.ogg`），因此实际 TTS 请求会使用角色参考音频而非默认文件；
-此文件仅为通过 Sakura 启动校验。
+角色包内已提供合法参考音频配置（本地 `characters/ikaros/voice/refs/ref.txt` +
+`tone_refs/neutral.ogg`，属本地个人素材不入库）；全新 clone 需自行放置
+`voice/refs/tone_refs/neutral.ogg`（任意合法音频即可，VITS/edge-tts 桥忽略内容），
+否则实际 TTS 请求会使用默认文件；此文件仅为通过 Sakura 启动校验。
 
 ## 应用方式
 

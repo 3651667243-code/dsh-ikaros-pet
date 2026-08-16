@@ -170,7 +170,8 @@ class IkarosVITS:
                     length_scale=1.0,
                 )[0][0]
             audio_np = audio.float().cpu().numpy()
-            pcm = (audio_np * hps.data.max_wav_value).astype(np.int16)
+            # 裁剪到 int16 范围，防止超出 [-32768, 32767] 时环绕失真
+            pcm = np.clip(audio_np * hps.data.max_wav_value, -32768, 32767).astype(np.int16)
             buffer = io.BytesIO()
             with wave.open(buffer, "wb") as wav_file:
                 wav_file.setnchannels(1)
@@ -246,7 +247,7 @@ class _Handler(BaseHTTPRequestHandler):
         if path in ("/", "/health"):
             vits = getattr(self, "vits", None)
             ready = vits is not None and vits.ready
-            error = getattr(vits, "load_error", "") if vits is not None else ""
+            error = getattr(vits, "_load_error", "") if vits is not None else ""
             if ready:
                 self._send_text(200, "ok")
             else:

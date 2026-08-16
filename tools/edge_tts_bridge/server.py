@@ -61,28 +61,29 @@ async def _synthesize(text: str, voice: str, rate: str, volume: str, proxy: str 
 
 
 def _mp3_to_wav(mp3_bytes: bytes) -> bytes:
-    """用 miniaudio 把 MP3 解码为 16bit PCM 的 WAV（Sakura 校验 RIFF 头）。"""
-    try:
-        import io
-        import wave
+    """用 miniaudio 把 MP3 解码为 16bit PCM 的 WAV（Sakura 校验 RIFF 头）。
 
-        import miniaudio
+    转换失败抛异常（上层返回 500）——绝不能把 MP3 伪装成 WAV 返回，
+    否则 Sakura 校验失败且掩盖真实错误。
+    """
+    import io
+    import wave
 
-        decoded = miniaudio.decode(
-            mp3_bytes,
-            output_format=miniaudio.SampleFormat.SIGNED16,
-            nchannels=1,
-            sample_rate=24000,
-        )
-        buffer = io.BytesIO()
-        with wave.open(buffer, "wb") as wav_file:
-            wav_file.setnchannels(1)
-            wav_file.setsampwidth(2)
-            wav_file.setframerate(decoded.sample_rate)
-            wav_file.writeframes(decoded.samples)
-        return buffer.getvalue()
-    except Exception:  # noqa: BLE001 - 转换失败时原样返回，让 Sakura 自行判定
-        return mp3_bytes
+    import miniaudio
+
+    decoded = miniaudio.decode(
+        mp3_bytes,
+        output_format=miniaudio.SampleFormat.SIGNED16,
+        nchannels=1,
+        sample_rate=24000,
+    )
+    buffer = io.BytesIO()
+    with wave.open(buffer, "wb") as wav_file:
+        wav_file.setnchannels(1)
+        wav_file.setsampwidth(2)
+        wav_file.setframerate(decoded.sample_rate)
+        wav_file.writeframes(decoded.samples)
+    return buffer.getvalue()
 
 
 class Bridge:
@@ -156,9 +157,20 @@ class _Handler(BaseHTTPRequestHandler):
             self._send_text(404, "not found")
             return
         try:
-            length = int(self.headers.get("Content-Length") or 0)
+            raw_length = self.headers.get("Content-Length") or ""
+            try:
+                length = int(raw_length)
+            except ValueError:
+                length = 0
+            # 负数长度会让 rfile.read(-1) 等待连接 EOF；超大正文应直接拒绝
+            if length < 0 or length > 2 * 1024 * 1024:
+                self._send_json(413, {"success": False, "message": "payload too large"})
+                return
             raw = self.rfile.read(length) if length else b"{}"
             payload = json.loads(raw.decode("utf-8"))
+            if not isinstance(payload, dict):
+                self._send_json(400, {"success": False, "message": "payload must be a JSON object"})
+                return
         except (ValueError, UnicodeDecodeError) as exc:
             self._send_json(400, {"success": False, "message": f"bad request: {exc}"})
             return
@@ -166,6 +178,9 @@ class _Handler(BaseHTTPRequestHandler):
         text = str(payload.get("text") or "").strip()
         if not text:
             self._send_json(400, {"success": False, "message": "empty text"})
+            return
+        if len(text) > 2000:
+            self._send_json(400, {"success": False, "message": "text too long"})
             return
         text_lang = str(payload.get("text_lang") or "ja")
         try:
