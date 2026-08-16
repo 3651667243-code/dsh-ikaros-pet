@@ -7,7 +7,7 @@
 本项目运行在 [Sakura Desktop Pet](https://github.com/Rvosy/Sakura) 宿主之上，由三部分组成：
 
 - **`dsh_watcher` 插件**：以用户权限在宿主机上运行，只读读取 DeepSeek Harness（DSH）会话日志；
-- **TTS 语音桥**：`edge_tts_bridge`（edge-tts 版）与 `vits_server.py`（VITS 版）均为本地 HTTP 服务，默认只监听 `127.0.0.1:9880`；
+- **TTS 语音桥**：`edge_tts_bridge`（edge-tts 版）与 `vits_server.py`（VITS 版）均为本地 HTTP 服务，默认监听 `127.0.0.1:9880`（仅本机）；WSL 部署时因 Windows 需经 WSL2 localhost 转发访问，`wsl_run_vits.sh` 显式使用 `--host 0.0.0.0`，请仅在可信局域网/本机环境下使用；
 - **角色包**：纯配置与立绘素材。
 
 以上组件都会联网调用 LLM / 语音合成服务，并且**在宿主环境（Windows / WSL）以你的用户权限执行代码**。项目不提供认证、加密、沙箱或权限隔离机制，请在可信环境、可信配置下使用，不要把本仓库代码当作安全边界来依赖。

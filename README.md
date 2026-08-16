@@ -25,6 +25,17 @@
 
 > 概念图由 gpt-image-2 生成；运行截图待补充。
 
+## 🧩 版本兼容矩阵
+
+| 组件 | 支持版本 |
+|---|---|
+| Windows | 10 / 11（部署目录须为纯英文路径） |
+| Python | 3.10+（Sakura Release 自带 runtime/） |
+| Sakura Desktop Pet | 上游 Release 最新版（补丁见 [docs/PATCHES.md](docs/PATCHES.md)） |
+| 插件 SDK | `api_version: 2` |
+| WSL | WSL2 Ubuntu 22.04+（仅 VITS 声线需要） |
+| DSH | 支持 `~/.dsh/sessions/*/session.jsonl.zstd`（zstd 多 frame 追加） |
+
 ## 🏗️ 架构
 
 ```
@@ -130,7 +141,7 @@ dsh-ikaros-pet/
 - **edge-tts / zstandard / miniaudio / 智谱 / DeepSeek** —— 语音与模型能力；
 - 《天降之物》角色设定 —— 角色扮演参考（版权归原作者水无月嵩/讲谈社等，本项目不包含任何官方素材）。
 
-完整致谢见 [docs/ACKNOWLEDGEMENTS.md](docs/ACKNOWLEDGEMENTS.md)。
+完整致谢见 [docs/ACKNOWLEDGEMENTS.md](docs/ACKNOWLEDGEMENTS.md)，第三方组件与许可证清单见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
 ## 📜 License 与声明
 
