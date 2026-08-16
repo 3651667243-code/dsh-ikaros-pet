@@ -998,6 +998,41 @@ PATCHES = [
             ),
         ],
     },
+    {
+        "id": "P12a-observe-self-rule",
+        "file": "app/agent/tool_routing.py",
+        "marker": "屏幕截图里的动漫风格立绘/天使形象/桌宠窗口就是你自己",
+        "steps": [
+            (
+                '                "- 当用户要求你点击、移动鼠标、输入、切换窗口或操作桌面应用时，不要用 observe_screen 推理坐标；改用 Windows MCP 的 windows__Snapshot / windows__Screenshot 作为操作前观察。",',
+                '                "- 当用户要求你点击、移动鼠标、输入、切换窗口或操作桌面应用时，不要用 observe_screen 推理坐标；改用 Windows MCP 的 windows__Snapshot / windows__Screenshot 作为操作前观察。",\n'
+                '                "- 屏幕截图里的动漫风格立绘/天使形象/桌宠窗口就是你自己（主人桌面上的桌宠），不要描述、评论或提及它；截图中的黑色矩形区域是隐私遮挡，忽略即可，不要猜测其内容。",',
+            ),
+        ],
+    },
+    {
+        "id": "P12b-image-self-rule",
+        "file": "app/llm/prompts/blocks.py",
+        "marker": "屏幕截图中的动漫立绘/天使形象是桌宠自己",
+        "steps": [
+            (
+                '                "- 图片/角色：能确认是角色图但没有文字线索时，只描述可见内容；不要猜身份。",',
+                '                "- 屏幕截图中的动漫立绘/天使形象是桌宠自己（宿主已遮挡），不要描述或提及；一般角色图没有文字线索时只描述可见内容，不要猜身份。",',
+            ),
+        ],
+    },
+    {
+        "id": "P12c-blackout-margin",
+        "file": "app/agent/screen_observation.py",
+        "marker": "外扩 2px 覆盖窗口边缘抗锯齿残留",
+        "steps": [
+            (
+                "                rect = rect.intersected(image.rect())",
+                "                rect = rect.adjusted(-2, -2, 2, 2)  # 外扩 2px 覆盖窗口边缘抗锯齿残留\n"
+                "                rect = rect.intersected(image.rect())",
+            ),
+        ],
+    },
 ]
 
 

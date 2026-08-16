@@ -3,9 +3,10 @@
 ikaros-dsh-pet 作为 Sakura Desktop Pet 的扩展发行，**不改动 Sakura 核心逻辑**，
 通过官方扩展点接入（角色包/插件/TTS 桥）。为启用「插件主动发言、双语字幕、
 中文 TTS 放行、屏幕排除自身、感知指令、视觉修复、DSH 上下文占用指示器、
-动漫化对话框」等能力，需要在 Sakura 安装目录应用**本地适配补丁**
-（`tools/apply_patches.py` 自动应用，共 13 项：P1、P2、P3a、P3b、P3c、P4、
-P5、P6、P7、P8、P9、P10、P11a、P11b），升级 Sakura 后需重新运行补丁脚本。
+动漫化对话框、屏幕不说自己」等能力，需要在 Sakura 安装目录应用**本地适配补丁**
+（`tools/apply_patches.py` 自动应用，共 16 项：P1、P2、P3a、P3b、P3c、P4、
+P5、P6、P7、P8、P9、P10、P11a、P11b、P12a、P12b、P12c），升级 Sakura 后
+需重新运行补丁脚本。
 
 ## 1. 插件服务后端注入（`app/ui/pet_window.py`）
 
@@ -399,6 +400,31 @@ V1.2.1 按用户反馈改回**右上方胶囊式**（更简洁醒目；顶部空
 `portrait_scale_percent: 55`、`control_panel_width: 440`、`bubble_height: 104`；
 字体文件 `data/fonts/LXGWWenKai-Regular.ttf`（24.4MB，OFL，不入库，从
 <https://github.com/lxgw/LxgwWenKai/releases> 下载，缺失时回退系统字体如幼圆）。
+
+## 12. 屏幕截图"不说自己"规则加固（V1.2.2，P12a/P12b/P12c）
+
+**文件**：`app/agent/tool_routing.py`（P12a）、`app/llm/prompts/blocks.py`（P12b）、
+`app/agent/screen_observation.py`（P12c）
+
+**背景**：用户反馈桌宠屏幕感知/看屏幕时会描述"屏幕上的动漫角色"——即她自己。
+P5 已把桌宠窗口涂黑，但 ① 主动 observe_screen 链路（用户说"看看我的屏幕"）
+的模型指令里没有"别描述自己"规则（P6 只覆盖自动感知事件）② 涂黑矩形边缘有
+1px 抗锯齿残留 ③ 视觉模型可能对黑块脑补内容。
+
+**补丁内容**：
+
+- **P12a**（tool_routing.py）：`observe_screen` 路由规则新增一条——
+  "屏幕截图里的动漫风格立绘/天使形象/桌宠窗口就是你自己（主人桌面上的桌宠），
+  不要描述、评论或提及它；截图中的黑色矩形区域是隐私遮挡，忽略即可，不要猜测
+  其内容。"（覆盖用户主动 observe_screen 链路）；
+- **P12b**（blocks.py）：图片消息规则改为——"屏幕截图中的动漫立绘/天使形象是
+  桌宠自己（宿主已遮挡），不要描述或提及；一般角色图没有文字线索时只描述可见
+  内容，不要猜身份。"（覆盖带图消息通用路径）；
+- **P12c**（screen_observation.py）：P5 涂黑矩形 `adjusted(-2,-2,2,2)` 外扩 2px，
+  覆盖窗口边缘抗锯齿残留像素。
+
+配合既有 P6 指令（自动感知事件）与 `characters/ikaros/card.md`「屏幕观察规则」，
+三道防线覆盖自动感知 / 主动 observe_screen / 通用图片消息。
 
 ## 应用方式
 
