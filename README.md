@@ -63,13 +63,13 @@
 
 ## ⚙️ 配置说明
 
-### LLM（默认 DeepSeek-chat）
+### LLM（默认 DeepSeek-chat + GLM-4V 视觉）
 
 | 项 | 值 |
 |---|---|
-| Base URL | `https://api.deepseek.com/v1` |
-| 模型名 | `deepseek-chat` |
-| 说明 | 极低成本、格式遵循稳定；可切换智谱 GLM-4-Flash（免费）等其他 OpenAI 兼容服务 |
+| 文本模型 | `deepseek-chat` @ `https://api.deepseek.com/v1` |
+| 视觉模型（屏幕观察/看图） | `glm-4v` @ `https://open.bigmodel.cn/api/paas/v4`（智谱；免费替代 `glm-4v-flash`） |
+| 说明 | `model_slots` 支持按用途分模型：含图片的消息自动走视觉槽位，纯文本走聊天槽位（见 `data/config/api.yaml`） |
 
 ### TTS
 
