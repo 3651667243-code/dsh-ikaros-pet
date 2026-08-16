@@ -57,10 +57,10 @@
 1. **下载 Sakura Release** 并解压，确认有 `main.py` 和 `runtime/`。
 2. **放置仓库**：本仓库与 Sakura 目录同级。
 3. **安装**：`install.bat`（自动复制角色包/插件/TTS 桥，并安装依赖 `zstandard`、`edge-tts`、`miniaudio`）。
-4. **应用本地补丁（必需）**：按 [docs/PATCHES.md](docs/PATCHES.md) 在 Sakura 安装目录应用七处适配补丁（主动发言后端、事件不写历史、双语字幕、语言守卫、屏幕排除自身、感知指令；升级 Sakura 后需重打）。
+4. **应用本地补丁（必需）**：`python tools/apply_patches.py <Sakura目录>`（幂等，自动应用七处适配补丁；升级 Sakura 后重跑一次即可。补丁明细见 [docs/PATCHES.md](docs/PATCHES.md)）。
 5. **WSL 部署（声线）**：详见 [docs/SETUP.md](docs/SETUP.md)「WSL 部署」——在 WSL 内创建 venv、安装 torch CPU + pyopenjtalk + 依赖、下载模型文件放入 `tools/edge_tts_bridge/vits/saved_model/19/`。
 6. **启动**：`start_tts_bridge.bat`（起 VITS 桥）→ `start.bat`（起 Sakura）。
-7. **首次配置**：选角色「伊卡洛斯」→ API 填 DeepSeek/GLM → TTS 指向 `http://127.0.0.1:9880/tts`。
+7. **首次配置**：选角色「伊卡洛斯」→ API 填 DeepSeek/GLM → TTS 指向 `http://127.0.0.1:9880/tts`（若桥启用了 `--auth-token`，地址需带 `?token=<令牌>`）。
 
 ## ⚙️ 配置说明
 

@@ -284,5 +284,14 @@ SolidWorks/建模/长时间作业→提醒休息），默认指令与角色卡�
 
 ## 应用方式
 
-每次升级/重装 Sakura Release 后，按上面七处重新应用即可。
-`install.bat` 已负责复制角色包、插件与 TTS 桥；补丁需手动或按需执行。
+**推荐**：运行自动补丁脚本（幂等，可重复执行，含锚点校验与 dry-run）：
+
+```bat
+<仓库>\runtime_or_系统python tools\apply_patches.py <Sakura安装目录>
+python tools\apply_patches.py <Sakura安装目录> --dry-run   :: 只检查不修改
+python tools\apply_patches.py <Sakura安装目录> --list      :: 查看状态
+```
+
+Sakura 升级后重新运行一次即可。脚本锚点不匹配（Sakura 版本变化）时，按
+下面各节手动应用。`install.bat` 负责复制角色包、插件与 TTS 桥；补丁需
+另行应用（自动脚本或手动）。

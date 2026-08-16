@@ -188,6 +188,7 @@ def main() -> int:
     parser.add_argument("--device", default="auto", choices=("auto", "cpu", "cuda"))
     parser.add_argument("--noise-scale", type=float, default=0.5, help="合成噪声（越低越干净，0.3-0.6 常用）")
     parser.add_argument("--noise-scale-w", type=float, default=0.7, help="时长预测噪声")
+    parser.add_argument("--auth-token", default="", help="可选访问令牌：配置后 /tts 需带 Authorization: Bearer <token> 或 ?token=<token>（防局域网误调用）")
     args = parser.parse_args()
 
     vits = IkarosVITS(device=args.device, noise_scale=args.noise_scale, noise_scale_w=args.noise_scale_w)
@@ -198,7 +199,7 @@ def main() -> int:
     handler = type(
         "VitsHandler",
         (_Handler,),
-        {"vits": vits},
+        {"vits": vits, "auth_token": args.auth_token.strip()},
     )
     try:
         server = ThreadingHTTPServer((args.host, args.port), handler)
@@ -242,9 +243,24 @@ class _Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt: str, *args: object) -> None:
         sys.stderr.write(f"[vits-bridge] {fmt % args}\n")
 
+    def _check_auth(self) -> bool:
+        """配置了 auth_token 时校验请求；未配置则放行。"""
+        token = getattr(self, "auth_token", "")
+        if not token:
+            return True
+        header = str(self.headers.get("Authorization") or "")
+        if header == f"Bearer {token}":
+            return True
+        query = urllib.parse.urlparse(self.path).query
+        if urllib.parse.parse_qs(query).get("token") == [token]:
+            return True
+        self._send_json(401, {"success": False, "message": "unauthorized"})
+        return False
+
     def do_GET(self) -> None:  # noqa: N802
         path = urllib.parse.urlparse(self.path).path
         if path in ("/", "/health"):
+            # 健康检查放行（无副作用；Sakura 启动探测不带 token）
             vits = getattr(self, "vits", None)
             ready = vits is not None and vits.ready
             error = getattr(vits, "_load_error", "") if vits is not None else ""
@@ -253,11 +269,15 @@ class _Handler(BaseHTTPRequestHandler):
             else:
                 self._send_json(503, {"success": False, "message": f"模型未就绪：{error}"})
         elif path in ("/set_gpt_weights", "/set_sovits_weights"):
+            if not self._check_auth():
+                return
             self._send_json(200, {"success": True, "code": 0})
         else:
             self._send_text(404, "not found")
 
     def do_POST(self) -> None:  # noqa: N802
+        if not self._check_auth():
+            return
         path = urllib.parse.urlparse(self.path).path
         if path != "/tts":
             self._send_text(404, "not found")
