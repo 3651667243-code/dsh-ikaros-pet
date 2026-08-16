@@ -172,9 +172,13 @@ def summarize_event(
         return SummarizedEvent(CATEGORY_INFO, f"主人启动了一个工作流：「{name}」", seq, time)
     if etype == "tool-workflow/run-end":
         stop_reason = _text(data.get("stopReason") or data.get("status") or data.get("error") or "completed")
+        # 摘要加入工作流名称/ID，避免不同工作流的完成事件共享同一摘要被去重误杀
+        meta = data.get("meta") if isinstance(data.get("meta"), dict) else {}
+        flow_name = _text(meta.get("name") or data.get("name") or data.get("workflowId") or "", 24)
+        flow_tag = f"「{flow_name}」" if flow_name else ""
         if str(stop_reason).lower() in ("completed", "success", "done", "完成"):
-            return SummarizedEvent(CATEGORY_WORKFLOW_DONE, "工作流结束了：完成", seq, time)
-        return SummarizedEvent(CATEGORY_TOOL_FAILED, f"工作流结束了：{stop_reason}", seq, time)
+            return SummarizedEvent(CATEGORY_WORKFLOW_DONE, f"工作流{flow_tag}结束了：完成", seq, time)
+        return SummarizedEvent(CATEGORY_TOOL_FAILED, f"工作流{flow_tag}结束了：{stop_reason}", seq, time)
     if etype == "tool-workflow/agent-start":
         return SummarizedEvent(CATEGORY_INFO, "工作流派出一个子代理开始干活。", seq, time)
     if etype == "tool-workflow/agent-end":
@@ -197,7 +201,12 @@ def summarize_event(
         tool = _text(data.get("tool") or data.get("name"), 30)
         return SummarizedEvent(CATEGORY_APPROVAL_ASKED, f"Agent 请求主人批准操作（{tool}）", seq, time)
     if etype == "approval/decided":
-        granted = bool(data.get("granted") or data.get("allowed"))
+        granted_raw = data.get("granted", data.get("allowed"))
+        granted = (
+            str(granted_raw).strip().lower() in ("true", "1", "yes")
+            if isinstance(granted_raw, str)
+            else bool(granted_raw)
+        )
         return SummarizedEvent(
             CATEGORY_INFO,
             "主人的授权被批准了。" if granted else "主人的授权被拒绝了。",

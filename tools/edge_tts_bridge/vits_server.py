@@ -141,13 +141,20 @@ class IkarosVITS:
 
     def synthesize(self, text: str, text_lang: str) -> bytes:
         self.ensure_ready()
+        if len(text) > 2000:
+            raise ValueError("文本过长（上限 2000 字符）")
         with self._lock:
             hps = self._hps_ns
-            # 按文本内容自动检测语言（比依赖 text_lang 更可靠）：
-            # 含日文假名 → 日语；否则 → 中文。避免"日文音素器读中文"。
             import re
 
-            if re.search(r"[\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f]", text):
+            # 语言选择：显式 text_lang 优先（zh → 中文，其余 → 日语）；
+            # 未显式指定（auto/空）时按文本内容自动检测：含日文假名 → 日语，否则 → 中文
+            lang = (text_lang or "").strip().lower()
+            if lang in ("zh", "zh-cn", "zho", "chinese"):
+                marked = f"[ZH]{text}[ZH]"
+            elif lang in ("ja", "ja-jp", "jpn", "japanese"):
+                marked = f"[JA]{text}[JA]"
+            elif re.search(r"[\u3040-\u30ff\u31f0-\u31ff\uff66-\uff9f]", text):
                 marked = f"[JA]{text}[JA]"
             else:
                 marked = f"[ZH]{text}[ZH]"

@@ -1,8 +1,10 @@
 # 本地补丁清单（Sakura 适配）
 
-ikaros-dsh-pet 作为 Sakura Desktop Pet 的扩展发行，**不改动 Sakura 核心代码**
-（角色包/插件/TTS 桥全部走官方扩展点）。但有两处**本地适配补丁**需要手动应用到
-Sakura 安装目录，升级 Sakura 后需重新应用。
+ikaros-dsh-pet 作为 Sakura Desktop Pet 的扩展发行，**不改动 Sakura 核心逻辑**，
+通过官方扩展点接入（角色包/插件/TTS 桥）。为启用「插件主动发言、双语字幕、
+中文 TTS 放行、屏幕排除自身、感知指令、视觉修复」等能力，需要在 Sakura 安装
+目录应用**本地适配补丁**（`tools/apply_patches.py` 自动应用，共 9 项：P1、P2、
+P3a、P3b、P3c、P4、P5、P6、P7），升级 Sakura 后需重新运行补丁脚本。
 
 ## 1. 插件服务后端注入（`app/ui/pet_window.py`）
 

@@ -56,6 +56,21 @@ def _safe_float(value: Any, default: float, minimum: float = 1.0) -> float:
     except (TypeError, ValueError):
         return default
 
+
+def _safe_bool(value: Any, default: bool = True) -> bool:
+    """严格布尔解析：仅接受 JSON 布尔或 'true'/'false'，避免 bool('false')==True。"""
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in ("true", "1", "yes", "on"):
+            return True
+        if lowered in ("false", "0", "no", "off"):
+            return False
+    if isinstance(value, (int, float)):
+        return bool(value)
+    return default
+
 # 事件类别 → 插件配置里的发言开关
 _CATEGORY_TO_CONFIG_KEY = {
     CATEGORY_WORKFLOW_DONE: "speak_on_workflow_done",
@@ -88,8 +103,8 @@ class DshWatcherPlugin(PluginBase):
         self._recent: list[SummarizedEvent] = []
         self._last_passive_at = 0.0
         self._tool_names: dict[str, str] = {}
-        # 重复发言抑制：已发言的 seq（防重放）与摘要指纹（防相似事件反复开口）
-        self._spoken_seqs: set[int] = set()
+        # 重复发言抑制：仅摘要指纹去重（seq 为 DSH 会话内序号，跨会话会重复，
+        # 全局按 seq 去重会误伤；防重放由 reader 的 seen 机制负责）
         self._spoken_summary_at: dict[str, float] = {}
         # 启动保护：回放的历史事件只进上下文、不触发发言，避免占用冷却
         self._speak_ready_at = time.time() + 30.0
@@ -106,16 +121,16 @@ class DshWatcherPlugin(PluginBase):
 
         reader = DSHLogReader(
             self._on_event,
-            dsh_home=Path(self._config.get("dsh_home") or DEFAULT_DSH_HOME),
+            dsh_home=Path(str(self._config.get("dsh_home") or DEFAULT_DSH_HOME)),
             workspace_keyword=str(self._config.get("workspace_keyword") or ""),
-            poll_interval_seconds=float(
-                self._config.get("log_poll_interval_seconds", 5)
+            poll_interval_seconds=_safe_float(
+                self._config.get("log_poll_interval_seconds"), 5.0, minimum=1.0
             ),
-            max_initial_events=int(self._config.get("max_recent_events", 40)),
+            max_initial_events=_safe_int(self._config.get("max_recent_events"), 40, minimum=1),
         )
         # 隐私开关：enabled=false 时不启动读取线程，且上下文注入返回空——
         # 配置关闭就是真正关闭监听（README/SECURITY 承诺的行为）
-        self._reader_enabled = bool(self._config.get("enabled", True))
+        self._reader_enabled = _safe_bool(self._config.get("enabled"), True)
         if self._reader_enabled:
             self._reader = reader
             reader.start()
@@ -154,18 +169,15 @@ class DshWatcherPlugin(PluginBase):
                 log.warning("请求主动发言失败：%s", exc)
 
     def _maybe_speak_locked(self, event: SummarizedEvent) -> tuple[str, str, str] | None:
-        """关键节点到达时判定是否发言（带冷却、去重与启动保护）；返回发言载荷或 None。"""
+        """关键节点到达时判定是否发言（带冷却、摘要去重与启动保护）；返回发言载荷或 None。"""
         if time.time() < getattr(self, "_speak_ready_at", 0.0):
             return None  # 启动保护：回放的历史事件不触发发言，避免占用冷却
-        if not bool(self._config.get("enabled", True)):
+        if not _safe_bool(self._config.get("enabled"), True):
             return None
         key = _CATEGORY_TO_CONFIG_KEY.get(event.category)
-        if key is None or not bool(self._config.get(key, True)):
+        if key is None or not _safe_bool(self._config.get(key), True):
             return None
         now = time.time()
-        # 同一事件（seq）不重复发言（防重放）
-        if event.seq and event.seq in self._spoken_seqs:
-            return None
         # 相同摘要指纹在去重窗口内不重复发言（防相似事件反复开口造成"重复回复"）
         dedup_seconds = _safe_float(
             self._config.get("passive_dedup_seconds"), 600.0, minimum=1.0
@@ -183,10 +195,6 @@ class DshWatcherPlugin(PluginBase):
         if isinstance(reactions, dict):
             line = str(reactions.get(reaction_key, ""))
         self._last_passive_at = now
-        if event.seq:
-            self._spoken_seqs.add(event.seq)
-            if len(self._spoken_seqs) > 200:
-                self._spoken_seqs = set(list(self._spoken_seqs)[-200:])
         if fingerprint:
             self._spoken_summary_at[fingerprint] = now
             if len(self._spoken_summary_at) > 100:

@@ -295,6 +295,10 @@ class DSHLogReader:
 
         frames, torn_start = scan_zstd_frames(tail)
         complete_end = torn_start if torn_start is not None else len(tail)
+        if complete_end <= 0:
+            # 当前没有完整帧（DSH 正在追加写入第一帧/半帧）：正常等待，不解压、
+            # 不推进 offset、不进损坏退避——半写入是追加日志的预期状态
+            return
         # 本次投递文本的结束偏移：正常路径从旧 offset 前进；损坏回退路径以
         # 全文件最后一个完整帧末尾为基准（不能用旧的 complete_end 累加，否则
         # offset 倒退导致重复读取/反复全量回退）

@@ -76,6 +76,11 @@ def main() -> int:
     if target.exists() and target.stat().st_size > EXPECTED_MB * 1024 * 1024:
         print(f"[download] 已存在：{target}（{target.stat().st_size / 1048576:.1f} MB），跳过")
         return 0
+    try:
+        args.output.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        print(f"[download] 无法创建输出目录 {args.output}：{exc}")
+        return 1
 
     if not token:
         print(
