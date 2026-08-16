@@ -68,7 +68,7 @@
 | 项 | 值 |
 |---|---|
 | 文本模型 | `deepseek-chat` @ `https://api.deepseek.com/v1` |
-| 视觉模型（屏幕观察/看图） | `glm-4v` @ `https://open.bigmodel.cn/api/paas/v4`（智谱；免费替代 `glm-4v-flash`） |
+| 视觉模型（屏幕观察/看图） | `glm-4v-flash` @ `https://open.bigmodel.cn/api/paas/v4`（智谱，免费；付费可换 `glm-4v`） |
 | 说明 | `model_slots` 支持按用途分模型：含图片的消息自动走视觉槽位，纯文本走聊天槽位（见 `data/config/api.yaml`） |
 
 ### TTS
