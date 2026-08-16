@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/header.svg" alt="dsh-ikaros-pet 伊卡洛斯桌宠" width="820"/>
+</p>
+
 # dsh-ikaros-pet — 伊卡洛斯桌宠
 
 > 基于 [Sakura Desktop Pet](https://github.com/Rvosy/Sakura) 框架（MIT License，作者 [Rvosy](https://github.com/Rvosy)）二次开发的伊卡洛斯风格桌宠（《天降之物》角色扮演）。让桌宠能「看见」你的 DeepSeek Harness 会话、听懂你在让 AI 做什么，任务完成时主动开口，用日语角色声线 VITS 模型说话。**本项目是非官方个人同人项目，与《天降之物》及其权利方无任何官方关联。**
