@@ -243,7 +243,28 @@ if excluded_widget is not None:
 **配合**：`characters/ikaros/card.md` 增加「屏幕观察规则」——截图里的动漫立绘是
 自己，不要描述、评论或提及。
 
-## 6. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
+## 6. 屏幕感知指令改为情境化回应（`app/agent/runtime.py`）
+
+**文件**：`<Sakura>/app/agent/runtime.py`
+
+**背景**：Sakura 默认屏幕感知指令是「基于屏幕内容找话题……不要把时间或停留时长
+自动泛化成休息建议」。但角色策略需要**按屏幕内容情境化回应**（学习→鼓励、
+SolidWorks/建模/长时间作业→提醒休息），默认指令与角色卡冲突。
+
+**补丁内容**：`_format_event_for_model` 的 `screen_awareness_check` 指令改为：
+
+```python
+"主动屏幕感知事件如下，请根据屏幕内容按角色卡「屏幕观察回应策略」回应："
+"学习/课程/文档→轻声鼓励陪伴；工程建模/设计/长时间连续作业→关心主人健康、"
+"委婉提醒休息（不要每次都说）；一般工作/代码→安静陪伴或简短询问；"
+"娱乐/游戏/视频→保持安静；内容无法判断→保持安静。"
+"不要描述屏幕上的动漫立绘（那是你自己）。"
+```
+
+**配合**：`characters/ikaros/card.md` 的「屏幕观察回应策略」表格（学习/建模/工作/
+娱乐分类回应，含日语示例）。
+
+## 7. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
 
 **背景**：Sakura 的 GPT-SoVITS TTS 校验要求存在默认参考音频
 （`data/config/api.yaml` 的 `tts.gpt_sovits` 未显式配置时，默认指向
@@ -262,5 +283,5 @@ if excluded_widget is not None:
 
 ## 应用方式
 
-每次升级/重装 Sakura Release 后，按上面六处重新应用即可。
+每次升级/重装 Sakura Release 后，按上面七处重新应用即可。
 `install.bat` 已负责复制角色包、插件与 TTS 桥；补丁需手动或按需执行。
