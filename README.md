@@ -66,6 +66,7 @@
 6. **启动**：双击桌面「伊卡洛斯桌宠」快捷方式（自动起 VITS 桥 → 无黑窗启动 Sakura；也可手动 `start_tts_bridge.bat` → `start.bat`）。
 7. **首次配置**：选角色「伊卡洛斯」→ API 填 DeepSeek/GLM → TTS 指向 `http://127.0.0.1:9880/tts`（若桥启用了 `--auth-token`，地址需带 `?token=<令牌>`）。
 8. **关闭**：正常退出 Sakura 即**自动联动全关**（语音桥停止、守护任务禁用）；或运行 `stop-pet.bat` 手动全关。再次双击桌面图标即可恢复全部。
+9. **桌面快捷方式（可选）**：`wscript tools\create_desktop_shortcut.vbs` 一键创建「伊卡洛斯桌宠」桌面图标（Q 版立绘图标，默认指向 `start.bat`；自定义启动器时传路径参数）。
 
 ## ⚙️ 配置说明
 
