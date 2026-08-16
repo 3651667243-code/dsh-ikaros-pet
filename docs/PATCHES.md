@@ -220,6 +220,10 @@ def should_skip_tts_text(text: str, target_lang: str) -> bool:
 现实现为把桌宠自身窗口区域（按 DPR 映射到物理像素）涂黑后再返回：
 
 ```python
+# 注意：QRect 属于 PySide6.QtCore，不在 QtGui（import 错误会导致 observe_screen 崩溃卡死）
+from PySide6.QtCore import QRect
+from PySide6.QtGui import QColor, QCursor, QPainter
+
 if excluded_widget is not None:
     try:
         if excluded_widget.isVisible():
