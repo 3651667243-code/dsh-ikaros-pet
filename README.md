@@ -1,5 +1,5 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/header.svg" alt="dsh-ikaros-pet 伊卡洛斯桌宠" width="820"/>
+﻿<p align="center">
+  <img src="https://raw.githubusercontent.com/ikaros-sora/dsh-ikaros-pet/main/assets/header.svg" alt="dsh-ikaros-pet 伊卡洛斯桌宠" width="820"/>
 </p>
 
 # dsh-ikaros-pet — 伊卡洛斯桌宠
@@ -29,11 +29,11 @@
 
 ## 🖼️ 效果预览
 
-<img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/screenshot.png" alt="运行效果：Q 版伊卡洛斯开场" width="520"/>
+<img src="https://raw.githubusercontent.com/ikaros-sora/dsh-ikaros-pet/main/assets/screenshot.png" alt="运行效果：Q 版伊卡洛斯开场" width="520"/>
 
 > 本机运行截图：Q 版伊卡洛斯的开场白「……伊卡洛斯，已确认与主人连接。有什么吩咐吗？」。
 
-<img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/screenshot-shortcut.png" alt="桌面快捷方式" width="300"/>
+<img src="https://raw.githubusercontent.com/ikaros-sora/dsh-ikaros-pet/main/assets/screenshot-shortcut.png" alt="桌面快捷方式" width="300"/>
 
 > 桌面「伊卡洛斯桌宠」快捷方式（双击启动，Q 版立绘图标；`tools/create_desktop_shortcut.vbs` 可一键创建）。
 
@@ -50,7 +50,7 @@
 
 ## 🏗️ 架构
 
-<img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/arch.png" alt="系统架构示意图" width="800"/>
+<img src="https://raw.githubusercontent.com/ikaros-sora/dsh-ikaros-pet/main/assets/arch.png" alt="系统架构示意图" width="800"/>
 
 > 架构图由 gpt-image-2 生成。核心链路：
 > - **DSH 日志 → dsh_watcher**：插件只读增量解析 `~/.dsh/sessions/*/session.jsonl.zstd`（zstd 多 frame，帧边界扫描），识别关键节点（`turn/start`、`tool/call`、`goal/change`、`approval/asked` 等）并注入上下文；
