@@ -120,7 +120,9 @@
 - 不要通过 Issue、PR、聊天或截图公开你的 Key；Key 泄露后请立即到服务商后台撤销并重新生成；
 - `dsh_watcher` 插件**只读**增量解析 `~/.dsh/sessions/*/session.jsonl.zstd`，绝不修改 DSH 数据；事件摘要的文本字段限制在 40~60 字符内，工具参数与结果只保留一句话摘要（见 `plugins/dsh_watcher/event_summarizer.py`）；
 - 摘要仍会以截断形式进入桌宠的 LLM 上下文——若你的 DSH 会话含高度敏感内容，请知悉此行为，或把 `plugins/dsh_watcher/config.json` 中 `speak_on_*` 全部设为 `false`、并将插件 `enabled` 设为 `false` 后重启桌宠，即可完全关闭监听；
-- TTS 文本会发送到本地语音桥（`127.0.0.1:9880`）或 edge-tts 在线服务，请按需选择。
+- TTS 文本会发送到本地语音桥（`127.0.0.1:9880`）或 edge-tts 在线服务，请按需选择；
+- **屏幕截图会发送到视觉模型（默认智谱 `glm-4v-flash`）用于内容理解**，对话文本与屏幕描述会发送到文本模型（默认 DeepSeek）；截图中的桌宠窗口已被自动涂黑，但**其余屏幕内容（窗口、网页、文档等）会以图片形式发送给第三方模型服务**——涉及敏感屏幕内容时请在 Sakura 设置中关闭「屏幕感知」与「视觉模型」；
+- 若你的 DSH 会话含高度敏感内容，可完全关闭监听：`plugins/dsh_watcher/config.json` → `enabled: false` 后重启桌宠。
 
 ## ❓ 常见问题
 
