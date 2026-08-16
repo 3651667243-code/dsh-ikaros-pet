@@ -19,7 +19,7 @@
 
 - **伊卡洛斯角色**：三无 + 天然呆 + 绝对忠诚，称呼主人「マスター」。角色包含人格卡与 5 张表情立绘（平静 / 疑惑 / 担心 / 开心 / 空之女王），对话时按语气自动切换立绘。立绘为本地个人素材（不入库），见 [characters/ikaros/README.md](characters/ikaros/README.md)。
 - **DSH 感知**：`dsh_watcher` 插件以帧边界增量方式只读 DSH 会话日志（`~/.dsh/sessions/*/session.jsonl.zstd`），识别关键节点（`turn/start`、`tool/call`、`tool/result`、`tool-workflow/run-*`、`goal/change`、`approval/asked` 等）并注入对话上下文。
-- **上下文指示器**：一枚天降之物风格悬浮光环悬浮在伊卡洛斯头顶后上方（gpt-5.6-sol 设计），椭圆 Angeloid 状态环兼进度弧，实时显示 DSH 当前会话上下文占用百分比（`CTX 15%`，口径与 DSH Web UI 一致，≥80% 转蜜桃橙，数值平滑补间；`system_config.yaml` → `ui.context_meter_enabled` 可关）。
+- **上下文指示器**：立绘右上方一枚天降之物风格胶囊徽章（天空蓝玻璃 + 天使翼 + 细进度条），实时显示 DSH 当前会话上下文占用百分比（`CTX 15%`，口径与 DSH Web UI 一致，≥80% 转蜜桃橙，数值平滑补间；`system_config.yaml` → `ui.context_meter_enabled` 可关）。
 - **屏幕互动**：能「看见」你的屏幕——默认每 10 分钟主动看一眼（可配置）：学习时轻声鼓励、长时间建模/设计时心疼地提醒休息、忙碌时安静陪伴；也可以直接说「看看我的屏幕」让她立刻看。视觉理解用免费 GLM-4V-Flash；她能看到屏幕但**看不到自己**（桌宠窗口已自动排除，不会傻乎乎地描述自己）。
 - **主动开口**：目标完成、工具失败、等待授权时伊卡洛斯主动说话（角色化回复 + 语音），120 秒冷却防打扰。
 - **伊卡洛斯声线**：VITS 语音桥（WSL 内运行，基于 Ikaros521/moe-tts 的 ikaros 模型，日语角色声线），日语/中文自动识别发音；edge-tts 作为免部署备选。

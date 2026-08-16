@@ -311,10 +311,11 @@ repair_messages = _strip_images_from_messages(repair_messages)
 `tools/apply_patches.py` 的 `_CONTEXT_METER_SOURCE`，修改时两处同步）
 
 **背景**：桌宠需要一个「小面积但醒目」的指示器，显示 DeepSeek Harness
-当前会话的上下文占用百分比，风格贴合天降之物（伊卡洛斯）。V1.2 采用
-gpt-5.6-sol 咨询产出的**悬浮光环式**布局（推荐方案）：椭圆 Angeloid 状态环
-悬浮在立绘头顶后上方（中心 L+0.52W, T+0.07H），椭圆光环兼进度弧、中间显示
-百分比、左端嵌小羽翼，像角色自身的状态环而非外挂标签。
+当前会话的上下文占用百分比，风格贴合天降之物（伊卡洛斯）。V1.2 曾采用
+gpt-5.6-sol 咨询产出的**悬浮光环式**布局（椭圆状态环悬浮头顶后上方），
+V1.2.1 按用户反馈改回**右上方胶囊式**（更简洁醒目；顶部空间不足，悬浮
+光环会遮挡头顶）：天空蓝半透明玻璃圆角胶囊，贴立绘右上角外侧
+（`portrait.right + 8, top + 10`，窗口右缘不足时收进窗口内）。
 
 **控件行为**：
 
@@ -325,15 +326,15 @@ gpt-5.6-sol 咨询产出的**悬浮光环式**布局（推荐方案）：椭圆 
   `updatedAt`（毫秒时间戳）；
 - 宿主用 QTimer 每 2 秒调用 `refresh()` 读文件；数据超过 120 秒未更新显示 `--%`
   并转为灰蓝调；
-- 占用 ≥80% 时进度弧与文字转蜜桃橙提醒；
+- 占用 ≥80% 时进度条与描边转蜜桃橙提醒；
 - 点击穿透（WA_TransparentForMouseEvents）；tooltip 显示 `12% · 125,000/1,000,000
   tokens · 会话名`；
-- 造型：96×30 椭圆光环，白→天空蓝渐变 70% 透明盘 + 1px 淡粉顶部高光弧
-  （4 秒呼吸微光）+ 进度轨道环与白色进度弧（12 点方向顺时针）+ 左端 12px
-  小羽翼图标（`<Sakura>/characters/ikaros/ui/dsh_ctx_badge.png`，gpt-5.6-sol
-  出 prompt + gpt-image-2 生成、flood-fill 去底，仓库 `assets/dsh_ctx_badge.png`
-  有副本），素材缺失时程序化绘制小天使翼回退；
-- 动效：数值变化时百分比与进度弧平滑补间（30ms 步进，无跳变）。
+- 造型：104×40 圆角胶囊，天空蓝垂直渐变 70% 透明 + 白色 1px 描边 + 顶部淡粉
+  高光（4 秒呼吸微光）+ 左侧 26×26 天使翼图标
+  （`<Sakura>/characters/ikaros/ui/dsh_ctx_badge.png`，gpt-5.6-sol 出 prompt +
+  gpt-image-2 生成、flood-fill 去底，仓库 `assets/dsh_ctx_badge.png` 有副本），
+  素材缺失时程序化绘制小天使翼回退；
+- 动效：数值变化时百分比与进度条平滑补间（30ms 步进，无跳变）。
 
 **配套（插件侧，仓库代码非补丁）**：`plugins/dsh_watcher` 新增上下文占用统计——
 `dsh_reader.py` 白名单加入 `request/context` 事件并新增纯函数 `context_percent`；
@@ -354,8 +355,8 @@ gpt-5.6-sol 咨询产出的**悬浮光环式**布局（推荐方案）：椭圆 
    `context_meter_enabled = self._load_context_meter_enabled()`（system_config.yaml
    的 `ui.context_meter_enabled`，默认开启）、`ContextMeter(self)`、`_refresh_context_meter`
    定时刷新；
-3. `_place_pet_children` 中把指示器悬浮在立绘头顶后上方（中心
-   `L+0.52W, T+0.07H`，窗口右/上缘不足时收进窗口内），并按开关显隐；
+3. `_place_pet_children` 中把指示器贴在立绘右上角外侧（`portrait.right + 8,
+   top + 10`，窗口右缘不足时收进窗口内），并按开关显隐；
 4. 新增 `_load_context_meter_enabled` / `_refresh_context_meter` 两个方法。
 
 指示器是可见直接子控件，自动并入舞台碰撞遮罩的可见区域；`WA_TransparentForMouseEvents`

@@ -109,12 +109,12 @@ _P1_METHODS = """    # ---- ikaros-dsh-pet 本地适配：插件服务真实后�
 # ---------------------------------------------------------------------------
 
 _CONTEXT_METER_SOURCE = r'''# -*- coding: utf-8 -*-
-"""context_meter.py —— DSH 会话上下文占用指示器（ikaros-dsh-pet 本地适配，V1.2 布局）。
+"""context_meter.py —— DSH 会话上下文占用指示器（ikaros-dsh-pet 本地适配，V1.2.1）。
 
-悬浮光环式（gpt-5.6-sol 推荐方案）：椭圆 Angeloid 状态环悬浮在立绘头顶后上方，
-中心 (L+0.52W, T+0.07H)——椭圆光环兼进度弧，中间显示 CTX 百分比，左端嵌小羽翼；
-白→天空蓝渐变、70% 透明、1px 淡粉高光；≥80% 转蜜桃橙；4 秒呼吸微光；
-数值变化时百分比与进度弧平滑补间。
+右上方胶囊式徽章：天空蓝半透明玻璃圆角胶囊 + 白色天使翼图标 + CTX 百分比
++ 底部细进度条。V1.2.1 根据用户反馈从「头顶悬浮光环」改回胶囊造型（更醒目、
+更简洁），位置贴立绘右上角外侧；保留 V1.2 的动效增强：数值平滑补间、
+4 秒呼吸微光、≥80% 蜜桃橙、数据过期灰蓝 "--%"。
 
 数据源：plugins/dsh_watcher 插件写出的 <Sakura>/data/dsh_context_state.json
 （与 DSH Web UI 的 context occupancy 同口径：提示侧 token / contextWindow）。
@@ -134,13 +134,12 @@ from PySide6.QtWidgets import QWidget
 CTX_STATE_REL = Path("data") / "dsh_context_state.json"
 BADGE_REL = Path("characters") / "ikaros" / "ui" / "dsh_ctx_badge.png"
 
-# 天降之物/伊卡洛斯配色：天空蓝主色 + 白 + 淡粉点缀 + 高占用蜜桃橙
+# 天降之物/伊卡洛斯配色：天空蓝主色 + 白 + 高占用蜜桃橙
 _SKY = QColor(122, 195, 224)
 _SKY_DEEP = QColor(74, 156, 199)
 _WHITE = QColor(255, 255, 255)
-_PINK = QColor(255, 198, 214)       # 淡粉（高光）
-_WARN = QColor(255, 178, 102)       # 蜜桃橙（≥80%）
-_TEXT_SHADOW = QColor(36, 96, 132, 170)
+_WARN = QColor(255, 178, 102)
+_TEXT_SHADOW = QColor(36, 96, 132, 160)
 
 # 数据超过该秒数未更新视为过期（显示 --）
 _STALE_AFTER_SECONDS = 120.0
@@ -149,7 +148,7 @@ _BREATH_PERIOD = 4.0
 
 
 class ContextMeter(QWidget):
-    """头顶悬浮光环式上下文占用徽章：椭圆光环兼进度弧 + CTX 百分比 + 小羽翼，点击穿透。"""
+    """右上方胶囊式上下文占用徽章：`CTX 15%` + 细进度条，点击穿透。"""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -164,13 +163,13 @@ class ContextMeter(QWidget):
         self._updated_at: float = 0.0
         self._badge: QPixmap | None = None
         self._load_badge()
-        # 数值平滑补间：显示值向目标值靠近，百分比与进度弧一起动
+        # 数值平滑补间：显示值向目标值靠近，避免百分比跳变
         self._shown = 0.0
         self._target = 0
         self._anim = QTimer(self)
         self._anim.setInterval(30)
         self._anim.timeout.connect(self._tick_anim)
-        self.setFixedSize(96, 30)
+        self.setFixedSize(104, 40)
 
     # ---- 数据 ----
 
@@ -237,41 +236,35 @@ class ContextMeter(QWidget):
     def paintEvent(self, event) -> None:  # noqa: N802 (Qt 命名)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        rect = QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5)
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
 
         stale = self._stale()
         warn = (not stale) and (self._percent or 0) >= 80
 
-        # 1) 椭圆光环主体：半透明白→天空蓝渐变盘
-        ellipse = QPainterPath()
-        ellipse.addEllipse(rect)
-        gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
+        # 1) 天空蓝半透明玻璃胶囊
+        gradient = QLinearGradient(rect.topLeft(), rect.bottomLeft())
         if stale:
-            gradient.setColorAt(0.0, QColor(120, 140, 150, 140))
-            gradient.setColorAt(1.0, QColor(90, 110, 122, 165))
+            gradient.setColorAt(0.0, QColor(120, 140, 150, 150))
+            gradient.setColorAt(1.0, QColor(90, 110, 122, 170))
         else:
-            gradient.setColorAt(0.0, QColor(255, 255, 255, 150))
-            gradient.setColorAt(1.0, QColor(_SKY_DEEP.red(), _SKY_DEEP.green(), _SKY_DEEP.blue(), 200))
+            gradient.setColorAt(0.0, QColor(_SKY.red(), _SKY.green(), _SKY.blue(), 185))
+            gradient.setColorAt(1.0, QColor(_SKY_DEEP.red(), _SKY_DEEP.green(), _SKY_DEEP.blue(), 215))
         painter.setBrush(gradient)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawPath(ellipse)
+        border = QColor(_WARN if warn else _WHITE)
+        border.setAlpha(200 if not stale else 120)
+        painter.setPen(QPen(border, 1.0))
+        painter.drawRoundedRect(rect, 10.0, 10.0)
 
-        # 2) 进度轨道环 + 进度弧（从 12 点方向顺时针，环宽 3px）
-        ring_rect = rect.adjusted(2.0, 2.0, -2.0, -2.0)
-        if not stale:
-            # 轨道：白 40% 细环
-            painter.setPen(QPen(QColor(255, 255, 255, 70), 2.0))
-            painter.setBrush(Qt.BrushStyle.NoBrush)
-            painter.drawEllipse(ring_rect)
-            # 进度弧：12 点 = 90°，顺时针 span = percent/100 * 360°
-            shown = min(100.0, max(0.0, self._shown))
-            span = round(-shown / 100.0 * 360.0 * 16.0)  # 负值=顺时针（Qt 逆时针为正）
-            painter.setPen(QPen(QColor(_WARN if warn else _WHITE), 2.0,
-                                Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
-            painter.drawArc(ring_rect, 90 * 16, span)
+        # 2) 顶部淡粉高光（1px，4s 呼吸微光）
+        glow = 0.5 + 0.5 * math.sin(2.0 * math.pi * (time.time() % _BREATH_PERIOD) / _BREATH_PERIOD)
+        highlight = QColor(255, 198, 214, int(90 + 55 * glow) if not stale else 40)
+        painter.setPen(QPen(highlight, 1.0))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        top = QRectF(rect.left() + 8.0, rect.top() + 1.0, rect.width() - 16.0, 3.0)
+        painter.drawRoundedRect(top, 1.5, 1.5)
 
-        # 3) 左端 12px 小羽翼
-        emblem = QRectF(rect.left() + 8.0, rect.top() + rect.height() / 2.0 - 6.0, 12.0, 12.0)
+        # 3) 左侧天使翼徽记（素材缺失时程序化绘制）
+        emblem = QRectF(6.0, 7.0, 26.0, 26.0)
         if self._badge is not None:
             painter.setOpacity(0.95 if not stale else 0.55)
             painter.drawPixmap(emblem.toRect(), self._badge)
@@ -279,15 +272,15 @@ class ContextMeter(QWidget):
         else:
             self._draw_wing_glyph(painter, emblem, stale)
 
-        # 4) 文字：CTX 小标签 + 大百分比（平滑补间）
+        # 4) 文字区：CTX 小标签 + 大百分比（平滑补间）
         font_small = QFont()
-        font_small.setPixelSize(7)
+        font_small.setPixelSize(8)
         font_small.setBold(True)
         font_big = QFont()
-        font_big.setPixelSize(15)
+        font_big.setPixelSize(17)
         font_big.setBold(True)
 
-        text_x = rect.left() + 26.0
+        text_x = 36.0
         text_w = rect.right() - text_x - 4.0
         if stale:
             percent_text = "--%"
@@ -296,41 +289,40 @@ class ContextMeter(QWidget):
 
         painter.setFont(font_small)
         painter.setPen(QColor(255, 255, 255, 215 if not stale else 140))
-        painter.drawText(QRectF(text_x, rect.top() + 3.0, text_w, 8.0),
-                         Qt.AlignmentFlag.AlignLeft, "CTX")
+        painter.drawText(QRectF(text_x, 4.0, text_w, 12.0), Qt.AlignmentFlag.AlignLeft, "CTX")
 
         painter.setFont(font_big)
         painter.setPen(_TEXT_SHADOW)
-        painter.drawText(QRectF(text_x + 0.7, rect.top() + 9.0 + 0.7, text_w, 17.0),
-                         Qt.AlignmentFlag.AlignLeft, percent_text)
+        painter.drawText(QRectF(text_x + 0.8, 14.0 + 0.8, text_w, 22.0), Qt.AlignmentFlag.AlignLeft, percent_text)
         painter.setPen(QColor(255, 255, 255, 255 if not stale else 150))
-        painter.drawText(QRectF(text_x, rect.top() + 9.0, text_w, 17.0),
-                         Qt.AlignmentFlag.AlignLeft, percent_text)
+        painter.drawText(QRectF(text_x, 14.0, text_w, 22.0), Qt.AlignmentFlag.AlignLeft, percent_text)
 
-        # 5) 1px 淡粉高光（顶部弧线，4s 呼吸微光）
-        glow = 0.5 + 0.5 * math.sin(2.0 * math.pi * (time.time() % _BREATH_PERIOD) / _BREATH_PERIOD)
-        highlight = QColor(_PINK.red(), _PINK.green(), _PINK.blue(),
-                           int(110 + 60 * glow) if not stale else 45)
-        painter.setPen(QPen(highlight, 1.2))
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        top_arc = rect.adjusted(3.0, 2.0, -3.0, 0.0)
-        painter.drawArc(top_arc, 200 * 16, 140 * 16)
+        # 5) 底部细进度条（平滑补间）
+        bar = QRectF(text_x, 34.5, text_w, 2.5)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(255, 255, 255, 90))
+        painter.drawRoundedRect(bar, 1.25, 1.25)
+        if not stale and self._percent:
+            shown = min(100.0, max(0.0, self._shown))
+            fill = QRectF(bar.left(), bar.top(), bar.width() * shown / 100.0, bar.height())
+            painter.setBrush(QColor(_WARN if warn else _WHITE))
+            painter.drawRoundedRect(fill, 1.25, 1.25)
         painter.end()
 
     def _draw_wing_glyph(self, painter: QPainter, rect: QRectF, stale: bool) -> None:
         """程序化小天使翼（素材缺失时的回退装饰）。"""
         color = QColor(255, 255, 255, 200 if not stale else 120)
-        painter.setPen(QPen(color, 1.3))
+        painter.setPen(QPen(color, 1.4))
         painter.setBrush(Qt.BrushStyle.NoBrush)
         left = QPainterPath()
-        left.moveTo(rect.left() + 1, rect.center().y() + 1)
-        left.cubicTo(rect.left(), rect.top() + 1, rect.center().x() - 1, rect.top(), rect.center().x(), rect.center().y() - 1)
-        left.cubicTo(rect.center().x() + 2, rect.top() + 3, rect.left() + 2, rect.top() + 5, rect.left() + 4, rect.center().y() + 1)
+        left.moveTo(rect.left() + 3, rect.center().y() + 2)
+        left.cubicTo(rect.left() + 2, rect.top() + 2, rect.center().x() - 2, rect.top() + 1, rect.center().x() + 1, rect.center().y() - 3)
+        left.cubicTo(rect.center().x() + 4, rect.top() + 5, rect.left() + 5, rect.top() + 9, rect.left() + 8, rect.center().y() + 4)
         painter.drawPath(left)
         right = QPainterPath()
-        right.moveTo(rect.center().x() + 1, rect.center().y() + 1)
-        right.cubicTo(rect.center().x() + 2, rect.top(), rect.right() - 1, rect.top() + 1, rect.right(), rect.center().y() - 2)
-        right.cubicTo(rect.right() - 2, rect.top() + 4, rect.center().x() + 3, rect.top() + 6, rect.center().x() + 2, rect.center().y() + 1)
+        right.moveTo(rect.center().x() + 3, rect.center().y() + 2)
+        right.cubicTo(rect.center().x() + 4, rect.top() + 1, rect.right() - 3, rect.top() + 2, rect.right() - 1, rect.center().y() - 4)
+        right.cubicTo(rect.right() - 4, rect.top() + 6, rect.center().x() + 6, rect.top() + 10, rect.center().x() + 4, rect.center().y() + 4)
         painter.drawPath(right)
 '''
 
@@ -715,7 +707,7 @@ PATCHES = [
             ),
             (
                 "        self.name_label = QLabel(self.character_profile.display_name, self.bubble)",
-                "        # ikaros-dsh-pet 本地适配：DSH 上下文占用指示器（头顶悬浮光环，2s 轮询）\n"
+                "        # ikaros-dsh-pet 本地适配：DSH 上下文占用指示器（右上角胶囊，2s 轮询）\n"
                 "        self.context_meter_enabled = self._load_context_meter_enabled()\n"
                 "        self.context_meter = ContextMeter(self)\n"
                 "        self.context_meter.hide()\n"
@@ -730,14 +722,14 @@ PATCHES = [
                 "        self.input_card.setGeometry(ix, iy, iw, ih)",
                 "        ix, iy, iw, ih = layout.input_rect\n"
                 "        self.input_card.setGeometry(ix, iy, iw, ih)\n"
-                "        # ikaros-dsh-pet 本地适配：指示器为悬浮光环式——立绘头顶后上方\n"
-                "        # （中心 L+0.52W, T+0.07H，gpt-5.6-sol 推荐布局），窗口右/上缘不足时收进窗口\n"
+                "        # ikaros-dsh-pet 本地适配：指示器贴立绘右上角外侧（V1.2.1 从头顶光环改回，\n"
+                "        # 顶部空间不足会遮挡头顶），窗口右缘不足时收进窗口内\n"
                 "        meter = getattr(self, \"context_meter\", None)\n"
                 "        if meter is not None:\n"
                 "            mw, mh = meter.width(), meter.height()\n"
                 "            meter.setGeometry(\n"
-                "                min(px + round(0.52 * pw) - mw // 2, self.width() - mw - 6),\n"
-                "                max(0, py + round(0.07 * ph) - mh // 2),\n"
+                "                min(px + pw + 8, self.width() - mw - 6),\n"
+                "                py + 10,\n"
                 "                mw, mh,\n"
                 "            )\n"
                 "            meter.setVisible(bool(getattr(self, \"context_meter_enabled\", True)))",
