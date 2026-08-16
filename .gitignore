@@ -10,6 +10,11 @@ data/
 runtime/
 logs/
 
+# DSH 会话日志（含个人对话，禁止提交）
+*.jsonl
+*.jsonl.zstd
+*.zstd
+
 # 角色素材（AI 生成 / 个人使用，不入库；保留本地工作区即可）
 characters/**/portraits/
 characters/**/voice/refs/tone_refs/

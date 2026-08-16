@@ -32,7 +32,8 @@
 
 ### 模型与立绘版权
 
-- 仓库内立绘为程序生成的占位图（`characters/ikaros/make_placeholder_portraits.py` 生成），**不包含《天降之物》的任何官方素材**；
+- 仓库**不包含**《天降之物》的任何官方素材，也不分发立绘、参考音频与模型权重；
+- 立绘为**本地个人素材（不入库）**；仓库仅提供 MIT 可自由使用的占位图生成脚本（`characters/ikaros/make_placeholder_portraits.py`）；
 - **AI 生成立绘与角色模型仅供个人使用，请勿提交进仓库**；
 - `vits_server.py` 所需的 VITS 模型文件（`tools/edge_tts_bridge/vits/saved_model/19/`）涉及训练声线等版权问题，**不入库**，需使用者自行准备；
 - 提交代码前，请确认没有把任何版权受限的素材、模型权重或他人代码混入 PR。

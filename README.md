@@ -1,6 +1,6 @@
 # dsh-ikaros-pet — 伊卡洛斯桌宠
 
-> 基于 [Sakura Desktop Pet](https://github.com/Rvosy/Sakura) 框架（MIT License，作者 [Rvosy](https://github.com/Rvosy)）二次开发的伊卡洛斯桌宠（《天降之物》角色）。让桌宠能「看见」你的 DeepSeek Harness 会话、听懂你在让 AI 做什么，任务完成时主动开口，用伊卡洛斯声线（早见沙织风格 VITS 模型）说话。
+> 基于 [Sakura Desktop Pet](https://github.com/Rvosy/Sakura) 框架（MIT License，作者 [Rvosy](https://github.com/Rvosy)）二次开发的伊卡洛斯风格桌宠（《天降之物》角色扮演）。让桌宠能「看见」你的 DeepSeek Harness 会话、听懂你在让 AI 做什么，任务完成时主动开口，用日语角色声线 VITS 模型说话。**本项目是非官方个人同人项目，与《天降之物》及其权利方无任何官方关联。**
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![platform](https://img.shields.io/badge/platform-Windows-0078d6)
@@ -15,9 +15,9 @@
 - **伊卡洛斯角色**：三无 + 天然呆 + 绝对忠诚，称呼主人「マスター」。角色包含人格卡与 5 张表情立绘（平静 / 疑惑 / 担心 / 开心 / 空之女王），对话时按语气自动切换立绘。立绘为本地个人素材（不入库），见 [characters/ikaros/README.md](characters/ikaros/README.md)。
 - **DSH 感知**：`dsh_watcher` 插件以帧边界增量方式只读 DSH 会话日志（`~/.dsh/sessions/*/session.jsonl.zstd`），识别关键节点（`turn/start`、`tool/call`、`tool/result`、`tool-workflow/run-*`、`goal/change`、`approval/asked` 等）并注入对话上下文。
 - **主动开口**：目标完成、工具失败、等待授权时伊卡洛斯主动说话（角色化回复 + 语音），120 秒冷却防打扰。
-- **伊卡洛斯声线**：VITS 语音桥（WSL 内运行，基于 Ikaros521/moe-tts 的 ikaros 模型，早见沙织声线训练），日语/中文自动识别发音；edge-tts 作为免部署备选。
+- **伊卡洛斯声线**：VITS 语音桥（WSL 内运行，基于 Ikaros521/moe-tts 的 ikaros 模型，日语角色声线），日语/中文自动识别发音；edge-tts 作为免部署备选。
 - **双语字幕**：气泡显示「中文译文 + 日语原文注释」双行。
-- **免费 LLM**：默认 DeepSeek-chat（极低成本，格式遵循稳定），可切换任意 OpenAI 兼容服务（智谱 GLM 等）。
+- **低成本 LLM**：默认 DeepSeek-chat（低成本、格式遵循稳定），可切换任意 OpenAI 兼容服务（智谱 GLM-4-Flash 等，按服务商计费规则使用）。
 
 ## 🖼️ 效果预览
 
@@ -42,7 +42,7 @@
 ┌───────────────────┐      └───────────┬──────────────────┘
 │ dsh_watcher 插件   │                  │ edge-tts（备选，需联网）
 │ 插件 SDK api v2    │                  ▼
-└─────────┬─────────┘          早见沙织风格日语/中文语音
+└─────────┬─────────┘          日语/中文角色语音
           │ 帧边界增量只读
           ▼
 ┌────────────────────────────────────────────────────────────┐
@@ -91,6 +91,24 @@
 | `workspace_keyword` | `ikaros` | 锁定的 DSH 工作区关键字 |
 | `reactions` | 日语台词 | 建议台词（日语可发声） |
 
+## 🔐 API Key 与隐私
+
+- **API Key 只填写在 Sakura 本地的配置文件里**（如 `data/config/api.yaml`），本仓库任何文件都不应包含真实 Key；
+- 不要通过 Issue、PR、聊天或截图公开你的 Key；Key 泄露后请立即到服务商后台撤销并重新生成；
+- `dsh_watcher` 插件**只读**增量解析 `~/.dsh/sessions/*/session.jsonl.zstd`，绝不修改 DSH 数据；事件摘要的文本字段限制在 40~60 字符内，工具参数与结果只保留一句话摘要（见 `plugins/dsh_watcher/event_summarizer.py`）；
+- 摘要仍会以截断形式进入桌宠的 LLM 上下文——若你的 DSH 会话含高度敏感内容，请知悉此行为，或把 `plugins/dsh_watcher/config.json` 中 `speak_on_*` 全部设为 `false`、并将插件 `enabled` 设为 `false` 后重启桌宠，即可完全关闭监听；
+- TTS 文本会发送到本地语音桥（`127.0.0.1:9880`）或 edge-tts 在线服务，请按需选择。
+
+## ❓ 常见问题
+
+| 现象 | 处理 |
+|---|---|
+| TTS 无声音 | 确认 `start_tts_bridge.bat` 已启动且服务健康（浏览器访问 `http://127.0.0.1:9880/` 返回 200）；端口 9880 被占用时换端口并同步修改 Sakura 的 TTS 地址 |
+| 提示「找不到模型文件」 | WSL 内模型未就位，按 [docs/SETUP.md](docs/SETUP.md)「WSL 部署」下载模型放入 `tools/edge_tts_bridge/vits/saved_model/19/` |
+| 没有立绘/显示占位图 | 立绘是本地个人素材（不入库），先运行 `python characters/ikaros/make_placeholder_portraits.py` 生成占位图，再按 [characters/ikaros/README.md](characters/ikaros/README.md) 替换 |
+| 中文路径崩溃 | 确保 Sakura 部署目录为纯英文路径（PySide6 限制） |
+| 桌宠不说话 | 检查 LLM API 配置与网络；`dsh_watcher` 有 120 秒发言冷却与启动 30 秒保护，属正常设计 |
+
 ## 📁 目录结构
 
 ```
@@ -114,8 +132,10 @@ dsh-ikaros-pet/
 
 完整致谢见 [docs/ACKNOWLEDGEMENTS.md](docs/ACKNOWLEDGEMENTS.md)。
 
-## 📜 License
+## 📜 License 与声明
 
-MIT License，详见 [LICENSE](LICENSE)。运行主体为 Sakura Desktop Pet（MIT，作者 Rvosy），使用本项目即表示已了解并遵守 Sakura 的许可条款。本项目不包含《天降之物》官方素材；AI 生成立绘与声线模型仅供个人使用，请勿上传至仓库。
+MIT License，详见 [LICENSE](LICENSE)。运行主体为 Sakura Desktop Pet（MIT，作者 Rvosy），**Sakura 本体不随本仓库分发**，需从[上游](https://github.com/Rvosy/Sakura)单独获取；使用本项目即表示已了解并遵守 Sakura 的许可条款。
+
+**非官方同人声明**：本项目是非官方个人同人项目，与《天降之物》及其权利方（水无月嵩 / 讲谈社等）无任何官方关联。仓库不包含《天降之物》官方素材，也不分发立绘、参考音频与声线模型权重；相关素材由用户本地自行准备，其版权、肖像、声音、模型许可及使用边界由用户自行确认与负责。请勿将未获授权的素材上传到本仓库、Release 或任何公开渠道。VITS 模型（Ikaros521/moe-tts）许可证不明确，默认视为**不可公开再分发**；不得用于冒充真实人物、误导性对话、商业配音或任何违法用途。
 
 *命令吗？—— 伊卡洛斯，已确认与主人连接。*
