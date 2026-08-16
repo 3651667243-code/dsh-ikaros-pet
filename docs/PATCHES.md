@@ -266,7 +266,27 @@ SolidWorks/建模/长时间作业→提醒休息），默认指令与角色卡�
 **配合**：`characters/ikaros/card.md` 的「屏幕观察回应策略」表格（学习/建模/工作/
 娱乐分类回应，含日语示例）。
 
-## 7. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
+## 8. 视觉回复修复剥离图片（`app/agent/runtime.py`）
+
+**文件**：`<Sakura>/app/agent/runtime.py`
+
+**背景**：屏幕观察链路中，免费视觉模型（GLM-4V-Flash）对 Sakura 的分段 JSON
+回复协议遵循较弱，可能输出普通文本导致「最终回复结构异常」。Sakura 的修复请求
+若仍带截图，会再次路由回视觉模型，反复失败（表现为「看看我在干什么」返回无关回复）。
+
+**补丁内容**：修复请求前剥离消息中的图片块（保留文本），使修复请求路由到
+格式稳定的文本模型（DeepSeek），由它基于视觉模型的文字输出生成规范回复——
+「视觉模型负责看，文本模型负责说」：
+
+```python
+# _repair 内、repair_messages 构建后：
+repair_messages = _strip_images_from_messages(repair_messages)
+```
+
+并在模块顶部新增 `_strip_images_from_messages()`（去掉 content 列表中的
+`image_url` 块，保留 `text` 块）。
+
+## 9. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
 
 **背景**：Sakura 的 GPT-SoVITS TTS 校验要求存在默认参考音频
 （`data/config/api.yaml` 的 `tts.gpt_sovits` 未显式配置时，默认指向

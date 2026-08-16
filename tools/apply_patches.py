@@ -410,6 +410,57 @@ PATCHES = [
         ],
     },
     {
+        "id": "P8-vision-repair-strip-images",
+        "file": "app/agent/runtime.py",
+        "marker": "本地适配（ikaros-dsh-pet）：修复请求剥离图片",
+        "steps": [
+            (
+                '                    "zh 保留或补充与 ja 对应的中文译文。"\n'
+                "                ),\n"
+                "            },\n"
+                "        ]\n"
+                "        try:",
+                '                    "zh 保留或补充与 ja 对应的中文译文。"\n'
+                "                ),\n"
+                "            },\n"
+                "        ]\n"
+                "        # 本地适配（ikaros-dsh-pet）：修复请求剥离图片，让文本模型（如 DeepSeek）\n"
+                "        # 基于已有上下文与视觉模型的文字输出完成格式修复；否则带图消息会再次路由\n"
+                "        # 到格式遵循较弱的免费视觉模型，导致反复非 JSON 输出。\n"
+                "        repair_messages = _strip_images_from_messages(repair_messages)\n"
+                "        try:",
+            ),
+            (
+                "from __future__ import annotations\n"
+                "\n"
+                "import json\n"
+                "import time",
+                "from __future__ import annotations\n"
+                "\n"
+                "import json\n"
+                "import time\n"
+                "\n"
+                "\n"
+                "def _strip_images_from_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:\n"
+                "    \"\"\"本地适配（ikaros-dsh-pet）：去掉消息内容里的图片块（保留文本），\n"
+                "    避免带图消息在格式修复时再次路由回格式遵循较弱的视觉模型。\"\"\"\n"
+                "    stripped: list[dict[str, Any]] = []\n"
+                "    for message in messages:\n"
+                "        content = message.get(\"content\")\n"
+                "        if isinstance(content, list):\n"
+                "            text_parts = [\n"
+                "                part for part in content\n"
+                "                if isinstance(part, dict) and part.get(\"type\") == \"text\"\n"
+                "            ]\n"
+                "            if text_parts:\n"
+                "                stripped.append({**message, \"content\": text_parts})\n"
+                "                continue\n"
+                "        stripped.append(message)\n"
+                "    return stripped",
+            ),
+        ],
+    },
+    {
         "id": "P7-ref-audio",
         "file": None,  # 特殊：创建文件
         "marker": REF_AUDIO_REL.name,
