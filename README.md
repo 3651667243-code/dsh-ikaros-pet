@@ -33,6 +33,10 @@
 
 > 本机运行截图：Q 版伊卡洛斯的开场白「……伊卡洛斯，已确认与主人连接。有什么吩咐吗？」。
 
+<img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/screenshot-shortcut.png" alt="桌面快捷方式" width="300"/>
+
+> 桌面「伊卡洛斯桌宠」快捷方式（双击启动，Q 版立绘图标；`tools/create_desktop_shortcut.vbs` 可一键创建）。
+
 ## 🧩 版本兼容矩阵
 
 | 组件 | 支持版本 |
