@@ -21,9 +21,9 @@
 
 ## 🖼️ 效果预览
 
-<img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/arch.png" alt="架构概念图" width="640"/>
+<img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/screenshot.png" alt="运行效果：伊卡洛斯等待回复（双语字幕）" width="520"/>
 
-> 概念图由 gpt-image-2 生成；运行截图待补充。
+> 本机运行截图：伊卡洛斯「等待回复」的样子，气泡显示「中文译文 + 日语原文」双语字幕。
 
 ## 🧩 版本兼容矩阵
 
@@ -38,29 +38,13 @@
 
 ## 🏗️ 架构
 
-```
-┌────────────────────────────────────────────────────────────┐
-│                    Sakura Desktop Pet（运行主体）            │
-│   PySide6 桌面窗口 · 对话 · 角色系统 · 语音播放 · Agent 能力   │
-└───────┬──────────────────────────┬─────────────────────────┘
-        │ 官方扩展点                 │ 外置 TTS（HTTP :9880）
-        ▼                           ▼
-┌───────────────────┐      ┌──────────────────────────────┐
-│ 角色包             │      │ VITS 语音桥（默认）           │
-│ characters/ikaros/│      │ tools/edge_tts_bridge/       │
-│ 人格卡 + 表情立绘   │      │ vits_server.py（WSL 内运行）  │
-└───────────────────┘      │ Ikaros521/moe-tts 模型        │
-┌───────────────────┐      └───────────┬──────────────────┘
-│ dsh_watcher 插件   │                  │ edge-tts（备选，需联网）
-│ 插件 SDK api v2    │                  ▼
-└─────────┬─────────┘          日语/中文角色语音
-          │ 帧边界增量只读
-          ▼
-┌────────────────────────────────────────────────────────────┐
-│ DeepSeek Harness（DSH）会话事件日志                          │
-│ ~/.dsh/sessions/*/session.jsonl.zstd（zstd 多 frame 追加）  │
-└────────────────────────────────────────────────────────────┘
-```
+<img src="https://raw.githubusercontent.com/3651667243-code/dsh-ikaros-pet/main/assets/arch.png" alt="系统架构示意图" width="800"/>
+
+> 架构图由 gpt-image-2 生成。核心链路：
+> - **DSH 日志 → dsh_watcher**：插件只读增量解析 `~/.dsh/sessions/*/session.jsonl.zstd`（zstd 多 frame，帧边界扫描），识别关键节点（`turn/start`、`tool/call`、`goal/change`、`approval/asked` 等）并注入上下文；
+> - **Sakura 桌宠**：角色包（人格卡 + 5 张立绘按语气自动切换）+ 插件 SDK `api_version: 2`；
+> - **语音**：桌宠 → WSL 内 VITS 桥（HTTP :9880）→ 伊卡洛斯声线输出；edge-tts 免部署备选；
+> - **LLM**：DeepSeek-chat / 智谱 GLM 等 OpenAI 兼容 API。
 
 ## 🚀 快速开始
 
@@ -128,7 +112,7 @@ dsh-ikaros-pet/
 ├── plugins/dsh_watcher/        # DSH 感知插件（plugin.py, dsh_reader.py, event_summarizer.py, config.json）
 ├── tools/edge_tts_bridge/      # 语音桥（vits_server.py, server.py, wsl_run_vits.sh, requirements.txt）
 ├── docs/                       # SETUP / PATCHES / ACKNOWLEDGEMENTS
-├── assets/                     # 概念图等
+├── assets/                     # 运行截图 / 架构图（gpt-image-2 生成）
 ├── install.bat / start.bat / start_tts_bridge.bat
 └── .github/                    # 规范模板（Issue/PR）
 ```
