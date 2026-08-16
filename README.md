@@ -4,12 +4,13 @@
 
 # dsh-ikaros-pet — 伊卡洛斯桌宠
 
-> 基于 [Sakura Desktop Pet](https://github.com/Rvosy/Sakura) 框架（MIT License，作者 [Rvosy](https://github.com/Rvosy)）二次开发的伊卡洛斯风格桌宠（《天降之物》角色扮演）。让桌宠能「看见」你的 DeepSeek Harness 会话、听懂你在让 AI 做什么，任务完成时主动开口，用日语角色声线 VITS 模型说话。**本项目是非官方个人同人项目，与《天降之物》及其权利方无任何官方关联。**
+> 基于 [Sakura Desktop Pet](https://github.com/Rvosy/Sakura) 框架（MIT License，作者 [Rvosy](https://github.com/Rvosy)）二次开发的伊卡洛斯风格桌宠（《天降之物》角色扮演），**专为 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 用户打造**：让桌宠能「看见」你的 DSH 会话、听懂你在让 AI 做什么，任务完成时主动开口，用日语角色声线 VITS 模型说话。**本项目是非官方个人同人项目，与《天降之物》及其权利方无任何官方关联。**
 
 ![license](https://img.shields.io/badge/license-MIT-blue)
 ![platform](https://img.shields.io/badge/platform-Windows-0078d6)
 ![python](https://img.shields.io/badge/Python-3.10%2B-3776ab)
 ![based-on](https://img.shields.io/badge/based_on-Sakura%20Desktop%20Pet-ff69b4)
+![dsh](https://img.shields.io/badge/DSH-aware-4a90d9)
 ![voice](https://img.shields.io/badge/voice-VITS%20%2B%20edge--tts-9cf)
 
 **本项目不改动 Sakura 核心逻辑，但需在 Sakura 安装目录应用若干本地适配补丁**（目前七处，见 [docs/PATCHES.md](docs/PATCHES.md)——补丁为 Sakura 升级后需重新应用的手工步骤，`install.bat` 不负责应用）。运行主体仍是 Sakura，本仓库通过其扩展点（角色包 + 插件 SDK `api_version: 2` + 外置 TTS 服务）接入，提供角色、DSH 感知、语音、安装脚本与文档。
