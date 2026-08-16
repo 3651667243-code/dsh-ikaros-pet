@@ -24,4 +24,18 @@
 
 ## 上游许可证保留
 
-Sakura Desktop Pet 的完整版权声明与 MIT License 文本已保留在本仓库 [LICENSE](LICENSE) 中；本项目未重新分发 Sakura 的完整运行时，用户应从上游官方渠道获取 Sakura。本仓库提供的适配补丁仅适用于对应上游版本（见 [docs/PATCHES.md](docs/PATCHES.md)），不代表本仓库拥有 Sakura 的版权。
+Sakura Desktop Pet 的完整版权声明与 MIT License 文本以其上游仓库
+<https://github.com/Rvosy/Sakura> 为准；本项目未重新分发 Sakura 的完整运行时，
+用户应从上游官方渠道获取 Sakura。本仓库提供的适配补丁仅适用于对应上游版本
+（见 [docs/PATCHES.md](docs/PATCHES.md)），不代表本仓库拥有 Sakura 的版权。
+本仓库 [LICENSE](LICENSE) 为标准 MIT License，授权本仓库原创部分
+（角色包、插件、工具与文档）。
+
+## 其他声明
+
+- **非官方同人项目**：本项目与《天降之物》及其权利方（水无月嵩 / 讲谈社等）
+  无任何官方关联；请勿冒充官方或真实人物，不得用于商业配音与误导性用途。
+- **素材**：仓库不包含《天降之物》官方素材，也不分发角色立绘、参考音频与
+  声线模型权重；立绘为本地个人素材（不入库），权利与使用边界由使用者自行确认。
+- **DSH**：DeepSeek Harness 为独立开源项目，本项目仅以只读方式读取其会话日志，
+  不包含其任何代码。
