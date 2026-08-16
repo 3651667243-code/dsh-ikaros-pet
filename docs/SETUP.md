@@ -189,6 +189,10 @@ Sakura\runtime\python.exe Sakura\tools\edge_tts_bridge\server.py
 - 打开 DSH 跑任务 → 关键节点（目标完成/工具失败）她会主动开口；
 - 屏幕上长时间建模/学习 → 每 10 分钟她按情境鼓励或提醒休息。
 
+**退出与重启**：正常关闭 Sakura 即自动联动关闭（语音桥停止、守护任务禁用）；
+再次启动用桌面「伊卡洛斯桌宠」快捷方式（自动恢复守护并启动桥与桌宠），
+或运行 `stop-pet.bat` 手动全关。详见 README「快速开始」第 6/8 步。
+
 ## 8. 立绘说明（个人素材，不入库）
 
 `characters/ikaros/portraits/` 是**本地个人素材**（AI 生成/自绘，涉及角色形象权利，
