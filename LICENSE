@@ -2,23 +2,6 @@ MIT License
 
 Copyright (c) 2026 ikaros-dsh-pet contributors
 
-本项目的角色包、插件、工具与文档（"ikaros-dsh-pet" 原创部分）
-采用 MIT License 授权，见下文。
-
-========================================================================
- 重要：本项目是基于 Sakura Desktop Pet 框架的二次开发项目
-========================================================================
-
-Sakura Desktop Pet（https://github.com/Rvosy/Sakura）
-Copyright (c) 2026 Rvosy
-MIT License
-
-本项目使用了 Sakura Desktop Pet 的框架、运行时与插件系统：
-- 运行主体为 Sakura Desktop Pet（需单独获取，见 README「快速开始」）
-- 角色包、插件与工具均通过 Sakura 官方扩展点接入，不改动其核心代码
-
-Sakura 的 MIT License 文本：
-
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
 in the Software without restriction, including without limitation the rights
@@ -37,15 +20,28 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-========================================================================
- 第三方与素材声明
-========================================================================
+=======================================================================
+ 补充声明（不改变上述 MIT 条款）
+=======================================================================
 
-1. 本项目**不包含《天降之物》官方素材**，也不分发角色立绘、参考音频与声线模型权重：
-   - 立绘为**本地个人素材，不入库**（AI 生成或自绘，权利与使用边界由使用者自行确认）；
-   - 仓库仅提供 MIT 可自由使用的占位图生成脚本（characters/ikaros/make_placeholder_portraits.py）；
-   - VITS 模型文件（Ikaros521/moe-tts）许可证不明确，默认视为不可公开再分发。
-2. 本项目为**非官方个人同人项目**，与《天降之物》及其权利方无任何官方关联；请勿冒充官方或真实人物，不得用于商业配音与误导性用途。
+本项目的角色包、插件、工具与文档（"ikaros-dsh-pet" 原创部分）按上述
+MIT License 授权。
 
-3. DeepSeek Harness（DSH）是独立开源项目，本项目仅以只读方式读取其
-   会话日志文件（~/.dsh/sessions/），不包含其任何代码。
+1. 本项目是基于 Sakura Desktop Pet（https://github.com/Rvosy/Sakura，
+   Copyright (c) 2026 Rvosy，MIT License）二次开发的扩展发行：
+   - 运行主体为 Sakura Desktop Pet（需从上游单独获取，见 README「快速开始」）；
+   - 角色包、插件与工具通过 Sakura 官方扩展点接入，不改动其核心逻辑；
+   - Sakura 的完整 MIT License 文本与版权声明以实际上游仓库为准，
+     本仓库不重新分发 Sakura 的完整运行时。
+
+2. 第三方与素材声明：
+   - 本项目不包含《天降之物》官方素材，也不分发角色立绘、参考音频与
+     声线模型权重；立绘为本地个人素材（不入库），权利与使用边界由
+     使用者自行确认；
+   - VITS 模型（Ikaros521/moe-tts）许可证不明确，默认视为不可公开再分发、
+     不可商用；仓库仅提供占位图生成脚本与模型下载脚本；
+   - DeepSeek Harness（DSH）为独立开源项目，本项目仅只读其会话日志，
+     不包含其代码。
+
+3. 本项目为非官方个人同人项目，与《天降之物》及其权利方无任何官方关联；
+   请勿冒充官方或真实人物，不得用于商业配音与误导性用途。
