@@ -187,7 +187,29 @@ def display_text(self, subtitle_language: str) -> str:
     return self.text
 ```
 
-## 4. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
+## 4. TTS 语言守卫放宽（`app/voice/text_language_guard.py`）
+
+**文件**：`<Sakura>/app/voice/text_language_guard.py`
+
+**背景**：Sakura 默认「目标语音为日语时，明显中文的文本不送入 TTS」。但本项目
+VITS / edge-tts 桥支持**日语+中文双语自动发音**（按文本内容检测），屏幕观察
+（视觉模型 GLM-4V-Flash）等场景会产生中文长描述回复，会被默认守卫静默跳过，
+导致「有字幕没声音」。
+
+**补丁内容**：守卫只拒绝「既不含日语假名也不含中日韩汉字」的异常文本
+（乱码/纯符号/纯英文），中文文本允许正常合成：
+
+```python
+def should_skip_tts_text(text: str, target_lang: str) -> bool:
+    if not text.strip():
+        return False
+    normalized_lang = target_lang.strip().lower()
+    if normalized_lang not in {"ja", "all_ja"}:
+        return False
+    return _looks_non_speech(text)  # 无假名且无 CJK → 跳过；中日文均放行
+```
+
+## 5. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
 
 **背景**：Sakura 的 GPT-SoVITS TTS 校验要求存在默认参考音频
 （`data/config/api.yaml` 的 `tts.gpt_sovits` 未显式配置时，默认指向
@@ -206,5 +228,5 @@ def display_text(self, subtitle_language: str) -> str:
 
 ## 应用方式
 
-每次升级/重装 Sakura Release 后，按上面四处重新应用即可。
+每次升级/重装 Sakura Release 后，按上面五处重新应用即可。
 `install.bat` 已负责复制角色包、插件与 TTS 桥；补丁需手动或按需执行。

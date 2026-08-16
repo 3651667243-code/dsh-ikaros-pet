@@ -90,6 +90,15 @@
 | `workspace_keyword` | `ikaros` | 锁定的 DSH 工作区关键字 |
 | `reactions` | 日语台词 | 建议台词（日语可发声） |
 
+### 主动屏幕感知（`data/config/system_config.yaml`）
+
+| 项 | 默认值 | 说明 |
+|---|---|---|
+| `screen_awareness.enabled` | `true` | 定时截图让伊卡洛斯"看见"屏幕并找话题 |
+| `check_interval_minutes` | 10 | 每隔几分钟看一次屏幕 |
+| `cooldown_minutes` | 10 | 发言后冷却，避免频繁打扰 |
+| 视觉模型 | `glm-4v-flash` | 屏幕内容理解（智谱免费视觉模型，见上文 LLM 表） |
+
 ## 🔐 API Key 与隐私
 
 - **API Key 只填写在 Sakura 本地的配置文件里**（如 `data/config/api.yaml`），本仓库任何文件都不应包含真实 Key；
