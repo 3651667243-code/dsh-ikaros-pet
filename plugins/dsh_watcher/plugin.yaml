@@ -1,7 +1,7 @@
 api_version: 2
 id: dsh_watcher
 name: DSH Watcher
-version: 0.1.0
+version: 0.2.0
 entry: plugin:DshWatcherPlugin
 enabled: true
 priority: 100

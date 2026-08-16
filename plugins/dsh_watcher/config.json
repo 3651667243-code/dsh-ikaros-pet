@@ -1,6 +1,8 @@
 {
   "enabled": true,
   "log_poll_interval_seconds": 5,
+  "context_state_file": "",
+  "context_state_min_interval_seconds": 2,
   "max_recent_events": 40,
   "max_context_events": 12,
   "dsh_home": "",

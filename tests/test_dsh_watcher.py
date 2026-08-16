@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -18,7 +19,9 @@ sys.path.insert(0, str(ROOT))
 
 from plugins.dsh_watcher.dsh_reader import (  # noqa: E402
     ZSTD_MAGIC,
+    DSHLogReader,
     _parse_events,
+    context_percent,
     decode_frames,
     find_latest_session_log,
     scan_zstd_frames,
@@ -107,6 +110,42 @@ class TestDecode:
         events = _parse_events('{"type": "user/message", "seq": 1, broken')
         assert events == []
 
+    def test_parse_events_includes_request_context(self) -> None:
+        # request/context 是上下文占用统计的事件类型，必须通过白名单过滤
+        lines = [
+            _event_line(
+                "request/context",
+                1,
+                provider="deepseek-official",
+                model="deepseek-v4-flash",
+                contextWindow=1000000,
+            ),
+            _event_line("assistant/message", 2, turn=1, step=1),
+        ]
+        events = _parse_events("\n".join(lines))
+        assert [e["seq"] for e in events] == [1, 2]
+
+
+# ---------------------------------------------------------------------------
+# 上下文占用百分比（与 DSH Web UI 口径一致）
+# ---------------------------------------------------------------------------
+
+
+class TestContextPercent:
+    def test_basic(self) -> None:
+        assert context_percent(126000, 1000000) == 13
+        assert context_percent(0, 1000000) == 0
+
+    def test_clamped_to_100(self) -> None:
+        assert context_percent(2_000_000, 1_000_000) == 100
+
+    def test_invalid_inputs(self) -> None:
+        assert context_percent(None, 1000000) is None
+        assert context_percent(-1, 1000000) is None
+        assert context_percent(100, 0) is None
+        assert context_percent("abc", 1000) is None
+        assert context_percent(100, "1000") == 10  # 数字字符串可解析
+
 
 # ---------------------------------------------------------------------------
 # 工作区过滤（隐私：严格匹配）
@@ -183,3 +222,57 @@ class TestCorruption:
         corrupt = good[: len(good) // 2] + b"\xff" * 8
         with pytest.raises(zstd.ZstdError):
             decode_frames(corrupt)
+
+
+# ---------------------------------------------------------------------------
+# 上下文占用 bootstrap：重启落在轮中时，首轮全量扫描带出窗口/压力值
+# ---------------------------------------------------------------------------
+
+
+class TestBootstrap:
+    def test_bootstrap_from_full_scan(self, tmp_path: Path) -> None:
+        (tmp_path / "sessions" / "session-ikaros-proj").mkdir(parents=True)
+        target = tmp_path / "sessions" / "session-ikaros-proj" / "session.jsonl.zstd"
+        # 事件流：request/context 在文件头部（重放尾 40 条拿不到），assistant/message 在尾部
+        lines = [
+            _event_line(
+                "request/context", 1,
+                provider="deepseek-official", model="deepseek-v4-flash", contextWindow=1000000,
+            ),
+            _event_line("assistant/message", 2, turn=1, step=1, usage={
+                "inputTokens": 120000, "cacheReadTokens": 30000, "cacheWriteTokens": 0,
+            }),
+        ]
+        target.write_bytes(_zstd_frames("\n".join(lines)))
+
+        received: list[str] = []
+        reader = DSHLogReader(received.append, dsh_home=tmp_path, workspace_keyword="ikaros",
+                              poll_interval_seconds=1.0, max_initial_events=40)
+        reader.start()
+        try:
+            deadline = time.monotonic() + 10
+            while not reader.bootstrapped and time.monotonic() < deadline:
+                time.sleep(0.05)
+        finally:
+            reader.stop()
+        assert reader.bootstrapped
+        assert reader.bootstrap_window == 1000000
+        assert reader.bootstrap_pressure == 150000
+        assert context_percent(reader.bootstrap_pressure, reader.bootstrap_window) == 15
+
+    def test_bootstrap_missing_fields(self, tmp_path: Path) -> None:
+        (tmp_path / "sessions" / "session-ikaros-proj").mkdir(parents=True)
+        target = tmp_path / "sessions" / "session-ikaros-proj" / "session.jsonl.zstd"
+        target.write_bytes(_zstd_frames(_event_line("user/message", 1, content="hi")))
+        reader = DSHLogReader(lambda ev: None, dsh_home=tmp_path, workspace_keyword="ikaros",
+                              poll_interval_seconds=1.0)
+        reader.start()
+        try:
+            deadline = time.monotonic() + 10
+            while not reader.bootstrapped and time.monotonic() < deadline:
+                time.sleep(0.05)
+        finally:
+            reader.stop()
+        assert reader.bootstrapped
+        assert reader.bootstrap_window is None
+        assert reader.bootstrap_pressure is None

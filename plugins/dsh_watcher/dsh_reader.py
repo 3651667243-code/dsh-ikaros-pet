@@ -57,8 +57,25 @@ _INTERESTING_TYPES = frozenset(
         "approval/decided",
         "subagent/descriptor",
         "session/title",
+        "request/context",
     }
 )
+
+
+def context_percent(pressure_tokens: object, context_window: object) -> int | None:
+    """DSH 上下文占用百分比（与 DSH Web UI 口径一致：min(100, round(used/window*100))）。
+
+    pressure_tokens 为最新一次请求的提示侧计费 token（inputTokens + cacheReadTokens
+    + cacheWriteTokens），context_window 来自 request/context 事件。任一无效返回 None。
+    """
+    try:
+        used = int(pressure_tokens)
+        window = int(context_window)
+    except (TypeError, ValueError):
+        return None
+    if window <= 0 or used < 0:
+        return None
+    return min(100, round(used / window * 100))
 
 
 def find_latest_session_log(dsh_home: Path, workspace_keyword: str = "") -> Path | None:
@@ -224,6 +241,13 @@ class DSHLogReader:
         self._thread: threading.Thread | None = None
         self._states: dict[Path, _FileState] = {}
         self._started_at = time.time()
+        # 最近一次轮询到的会话日志路径（供插件侧展示"当前会话"上下文占用）
+        self.latest_path: Path | None = None
+        # 首轮全量扫描的上下文占用 bootstrap：DSH 的 request/context 事件每轮只写一次，
+        # 桌宠重启可能落在某轮中间（重放尾 40 条拿不到它），用全量扫描带出最新值
+        self.bootstrap_window: int | None = None
+        self.bootstrap_pressure: int | None = None
+        self.bootstrapped = False
 
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
@@ -252,6 +276,7 @@ class DSHLogReader:
         path = find_latest_session_log(self.dsh_home, self.workspace_keyword)
         if path is None:
             return
+        self.latest_path = path
         try:
             st = path.stat()
         except OSError:
@@ -324,6 +349,29 @@ class DSHLogReader:
                 return
 
         events = _parse_events(text)
+        if not self.bootstrapped:
+            # 首轮（含损坏回退后的全量重读）：从完整事件流里带出最新的
+            # contextWindow 与提示侧 token 数，供插件侧立即可用
+            for event in events:
+                etype = event.get("type")
+                if etype == "request/context":
+                    cw = (event.get("data") or {}).get("contextWindow")
+                    if isinstance(cw, (int, float)) and cw > 0:
+                        self.bootstrap_window = int(cw)
+                elif etype == "assistant/message":
+                    usage = (event.get("data") or {}).get("usage")
+                    if isinstance(usage, dict):
+                        try:
+                            pressure = (
+                                int(usage.get("inputTokens") or 0)
+                                + int(usage.get("cacheReadTokens") or 0)
+                                + int(usage.get("cacheWriteTokens") or 0)
+                            )
+                        except (TypeError, ValueError):
+                            pressure = -1
+                        if pressure >= 0:
+                            self.bootstrap_pressure = pressure
+            self.bootstrapped = True
         booting = state.first_seen
         if booting:
             events = events[-self.max_initial_events :]

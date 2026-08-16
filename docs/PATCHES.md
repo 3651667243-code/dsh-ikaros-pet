@@ -2,9 +2,10 @@
 
 ikaros-dsh-pet 作为 Sakura Desktop Pet 的扩展发行，**不改动 Sakura 核心逻辑**，
 通过官方扩展点接入（角色包/插件/TTS 桥）。为启用「插件主动发言、双语字幕、
-中文 TTS 放行、屏幕排除自身、感知指令、视觉修复」等能力，需要在 Sakura 安装
-目录应用**本地适配补丁**（`tools/apply_patches.py` 自动应用，共 9 项：P1、P2、
-P3a、P3b、P3c、P4、P5、P6、P7），升级 Sakura 后需重新运行补丁脚本。
+中文 TTS 放行、屏幕排除自身、感知指令、视觉修复、DSH 上下文占用指示器、
+动漫化对话框」等能力，需要在 Sakura 安装目录应用**本地适配补丁**
+（`tools/apply_patches.py` 自动应用，共 13 项：P1、P2、P3a、P3b、P3c、P4、
+P5、P6、P7、P8、P9、P10、P11a、P11b），升级 Sakura 后需重新运行补丁脚本。
 
 ## 1. 插件服务后端注入（`app/ui/pet_window.py`）
 
@@ -303,6 +304,100 @@ repair_messages = _strip_images_from_messages(repair_messages)
 `tone_refs/neutral.ogg`，属本地个人素材不入库）；全新 clone 需自行放置
 `voice/refs/tone_refs/neutral.ogg`（任意合法音频即可，VITS/edge-tts 桥忽略内容），
 否则实际 TTS 请求会使用默认文件；此文件仅为通过 Sakura 启动校验。
+
+## 9. DSH 上下文占用指示器控件（`app/ui/context_meter.py`，P9 创建文件）
+
+**文件**：`<Sakura>/app/ui/context_meter.py`（由补丁脚本创建，源码内嵌于
+`tools/apply_patches.py` 的 `_CONTEXT_METER_SOURCE`，修改时两处同步）
+
+**背景**：桌宠需要一个「小面积但醒目」的指示器，显示 DeepSeek Harness
+当前会话的上下文占用百分比，风格贴合天降之物（伊卡洛斯）。V1.2 采用
+gpt-5.6-sol 咨询产出的**悬浮光环式**布局（推荐方案）：椭圆 Angeloid 状态环
+悬浮在立绘头顶后上方（中心 L+0.52W, T+0.07H），椭圆光环兼进度弧、中间显示
+百分比、左端嵌小羽翼，像角色自身的状态环而非外挂标签。
+
+**控件行为**：
+
+- 数据源：`<Sakura>/data/dsh_context_state.json`，由 `dsh_watcher` 插件（v0.2.0）
+  在后台线程写入，字段：
+  `percent`（min(100, round(提示侧 token / contextWindow × 100))，与 DSH Web UI
+  的 context occupancy 同口径）、`usedTokens`、`contextWindow`、`session`、
+  `updatedAt`（毫秒时间戳）；
+- 宿主用 QTimer 每 2 秒调用 `refresh()` 读文件；数据超过 120 秒未更新显示 `--%`
+  并转为灰蓝调；
+- 占用 ≥80% 时进度弧与文字转蜜桃橙提醒；
+- 点击穿透（WA_TransparentForMouseEvents）；tooltip 显示 `12% · 125,000/1,000,000
+  tokens · 会话名`；
+- 造型：96×30 椭圆光环，白→天空蓝渐变 70% 透明盘 + 1px 淡粉顶部高光弧
+  （4 秒呼吸微光）+ 进度轨道环与白色进度弧（12 点方向顺时针）+ 左端 12px
+  小羽翼图标（`<Sakura>/characters/ikaros/ui/dsh_ctx_badge.png`，gpt-5.6-sol
+  出 prompt + gpt-image-2 生成、flood-fill 去底，仓库 `assets/dsh_ctx_badge.png`
+  有副本），素材缺失时程序化绘制小天使翼回退；
+- 动效：数值变化时百分比与进度弧平滑补间（30ms 步进，无跳变）。
+
+**配套（插件侧，仓库代码非补丁）**：`plugins/dsh_watcher` 新增上下文占用统计——
+`dsh_reader.py` 白名单加入 `request/context` 事件并新增纯函数 `context_percent`；
+`plugin.py` 跟踪 `request/context` 的 `contextWindow` 与 `assistant/message`
+`usage` 的提示侧 token（inputTokens + cacheReadTokens + cacheWriteTokens），
+按节流（`context_state_min_interval_seconds`，默认 2s）原子写状态文件；
+`config.json` 新增 `context_state_file`（默认 `<Sakura>/data/dsh_context_state.json`，
+可绝对路径或相对 Sakura 根）。
+
+## 10. 指示器挂载进主窗口（`app/ui/pet_window.py`，P10）
+
+**文件**：`<Sakura>/app/ui/pet_window.py`
+
+**补丁内容**：
+
+1. 导入：`from app.ui.context_meter import ContextMeter`；
+2. `__init__` 中（气泡构建前）创建控件与 2 秒 QTimer：
+   `context_meter_enabled = self._load_context_meter_enabled()`（system_config.yaml
+   的 `ui.context_meter_enabled`，默认开启）、`ContextMeter(self)`、`_refresh_context_meter`
+   定时刷新；
+3. `_place_pet_children` 中把指示器悬浮在立绘头顶后上方（中心
+   `L+0.52W, T+0.07H`，窗口右/上缘不足时收进窗口内），并按开关显隐；
+4. 新增 `_load_context_meter_enabled` / `_refresh_context_meter` 两个方法。
+
+指示器是可见直接子控件，自动并入舞台碰撞遮罩的可见区域；`WA_TransparentForMouseEvents`
+保证不拦截点击。
+
+## 11. 动漫化对话框样式与字体（V1.2，P11a/P11b）
+
+**文件**：`<Sakura>/app/ui/theme.py`（P11a）、`<Sakura>/app/ui/pet_window.py`（P11b）
+
+**背景**：V1.2 视觉升级（gpt-5.6-sol 咨询产出）：桌宠整体缩小（立绘 55%、
+对话框 440×104、输入栏 440×44，主窗口 656×585 → 536×500），对话框与字体
+动漫化。
+
+**P11a（theme.py QSS）**：
+
+- 气泡 `#speechBubble`：白→淡蓝垂直渐变（`qlineargradient`，stop:0
+  rgba(255,255,255,242) → stop:1 rgba(229,245,255,238)）+ 1px 淡蓝边框
+  `rgba(169,217,243,210)` + 圆角 18px（原为单色 20px）；
+- 输入栏 `#inputBar[solid]`：奶白→淡蓝渐变 + 圆角 16px；
+- 输入框 `#petInput`：圆角 16px + `font-family: "LXGW WenKai"`；
+- 按钮 `#sendButton/#screenshotButton`：浅蓝底 `rgba(221,242,255,235)` +
+  深蓝字 `rgba(84,134,168,235)` + 圆角 12px；hover 淡粉 `rgba(248,221,234,242)`
+  （伊卡洛斯蓝白粉配色）；
+- 名字/正文 `#speakerName/#speechText`：`font-family: "LXGW WenKai"`；
+- 新增装饰 QSS：`#bubbleWingBadge`（羽翼角标透明底）、`#bubbleTail`
+  （气泡底部 12×10 三角尾角，QSS border 三角，颜色与气泡渐变底一致）。
+
+**P11b（pet_window.py）**：
+
+1. `__init__` 中（QApplication 创建后）加载动漫字体：
+   `data/fonts/LXGWWenKai-Regular.ttf`（霞鹜文楷，OFL，中文+日文假名混排），
+   `QFontDatabase.addApplicationFont`；**注意**：模块级加载会在 QApplication
+   创建前触碰 Qt 字体系统导致原生崩溃（0xC0000005），必须放 `__init__`；
+2. 气泡装饰：左上角 20×20 羽翼角标（`characters/ikaros/ui/dsh_ctx_badge.png`
+   缩小，素材缺失时空白）+ 底部中央 12×10 三角尾角；
+3. 气泡布局左边距 22 → 40（给角标让位）；
+4. `_place_pet_children` 中尾角跟随气泡底边中央（气泡自适应高度时同步）。
+
+**配套（非补丁）**：`<Sakura>/data/config/system_config.yaml` 尺寸调整——
+`portrait_scale_percent: 55`、`control_panel_width: 440`、`bubble_height: 104`；
+字体文件 `data/fonts/LXGWWenKai-Regular.ttf`（24.4MB，OFL，不入库，从
+<https://github.com/lxgw/LxgwWenKai/releases> 下载，缺失时回退系统字体如幼圆）。
 
 ## 应用方式
 

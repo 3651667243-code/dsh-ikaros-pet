@@ -1,4 +1,4 @@
-﻿<p align="center">
+<p align="center">
   <img src="https://raw.githubusercontent.com/ikaros-sora/dsh-ikaros-pet/main/assets/header.svg" alt="dsh-ikaros-pet 伊卡洛斯桌宠" width="820"/>
 </p>
 
@@ -13,16 +13,18 @@
 ![dsh](https://img.shields.io/badge/DSH-aware-4a90d9)
 ![voice](https://img.shields.io/badge/voice-VITS%20%2B%20edge--tts-9cf)
 
-**本项目不改动 Sakura 核心逻辑，但需在 Sakura 安装目录应用若干本地适配补丁**（目前七处，见 [docs/PATCHES.md](docs/PATCHES.md)——补丁为 Sakura 升级后需重新应用的手工步骤，`install.bat` 不负责应用）。运行主体仍是 Sakura，本仓库通过其扩展点（角色包 + 插件 SDK `api_version: 2` + 外置 TTS 服务）接入，提供角色、DSH 感知、语音、安装脚本与文档。
+**本项目不改动 Sakura 核心逻辑，但需在 Sakura 安装目录应用若干本地适配补丁**（目前十一处，见 [docs/PATCHES.md](docs/PATCHES.md)——补丁为 Sakura 升级后需重新应用的手工步骤，`install.bat` 不负责应用）。运行主体仍是 Sakura，本仓库通过其扩展点（角色包 + 插件 SDK `api_version: 2` + 外置 TTS 服务）接入，提供角色、DSH 感知、语音、安装脚本与文档。
 
 ## ✨ 功能特性
 
 - **伊卡洛斯角色**：三无 + 天然呆 + 绝对忠诚，称呼主人「マスター」。角色包含人格卡与 5 张表情立绘（平静 / 疑惑 / 担心 / 开心 / 空之女王），对话时按语气自动切换立绘。立绘为本地个人素材（不入库），见 [characters/ikaros/README.md](characters/ikaros/README.md)。
 - **DSH 感知**：`dsh_watcher` 插件以帧边界增量方式只读 DSH 会话日志（`~/.dsh/sessions/*/session.jsonl.zstd`），识别关键节点（`turn/start`、`tool/call`、`tool/result`、`tool-workflow/run-*`、`goal/change`、`approval/asked` 等）并注入对话上下文。
+- **上下文指示器**：一枚天降之物风格悬浮光环悬浮在伊卡洛斯头顶后上方（gpt-5.6-sol 设计），椭圆 Angeloid 状态环兼进度弧，实时显示 DSH 当前会话上下文占用百分比（`CTX 15%`，口径与 DSH Web UI 一致，≥80% 转蜜桃橙，数值平滑补间；`system_config.yaml` → `ui.context_meter_enabled` 可关）。
 - **屏幕互动**：能「看见」你的屏幕——默认每 10 分钟主动看一眼（可配置）：学习时轻声鼓励、长时间建模/设计时心疼地提醒休息、忙碌时安静陪伴；也可以直接说「看看我的屏幕」让她立刻看。视觉理解用免费 GLM-4V-Flash；她能看到屏幕但**看不到自己**（桌宠窗口已自动排除，不会傻乎乎地描述自己）。
 - **主动开口**：目标完成、工具失败、等待授权时伊卡洛斯主动说话（角色化回复 + 语音），120 秒冷却防打扰。
 - **伊卡洛斯声线**：VITS 语音桥（WSL 内运行，基于 Ikaros521/moe-tts 的 ikaros 模型，日语角色声线），日语/中文自动识别发音；edge-tts 作为免部署备选。
 - **双语字幕**：气泡显示「中文译文 + 日语原文注释」双行。
+- **动漫化界面（V1.2）**：整体小巧（立绘 55%、对话框 440×104），对话框为 galgame 式白→淡蓝渐变气泡 + 淡蓝描边 + 左上羽翼角标 + 底部尾角，输入栏奶白圆角、按钮浅蓝底淡粉 hover；字体用霞鹜文楷（OFL，中日混排，`data/fonts/` 缺失时回退系统字体）。
 - **Q 版立绘**：大头身 Q 版伊卡洛斯（粉色短发、白色战斗服、淡粉羽翼），5 张表情按语气自动切换；本地透明底素材（不入库）。
 - **窗口置顶**：永远浮在最上层，点开任何页面都不会被覆盖（可右键临时关闭）。
 - **低成本 LLM**：默认 DeepSeek-chat（低成本、格式遵循稳定），可切换任意 OpenAI 兼容服务（智谱 GLM-4-Flash 等，按服务商计费规则使用）。
@@ -99,6 +101,7 @@
 | `speak_on_*` | true | 各类关键节点是否主动发言 |
 | `passive_cooldown_seconds` | 120 | 主动发言冷却 |
 | `workspace_keyword` | `ikaros` | 锁定的 DSH 工作区关键字 |
+| `context_state_file` | `data/dsh_context_state.json` | 上下文占用状态文件（立绘右侧指示器数据源；绝对路径或相对 Sakura 根） |
 | `reactions` | 日语台词 | 建议台词（日语可发声） |
 
 ### 主动屏幕感知（`data/config/system_config.yaml`）
@@ -108,6 +111,7 @@
 | `screen_awareness.enabled` | `true` | 定时截图让伊卡洛斯"看见"屏幕并找话题 |
 | `check_interval_minutes` | 10 | 每隔几分钟看一次屏幕 |
 | `cooldown_minutes` | 10 | 发言后冷却，避免频繁打扰 |
+| `ui.context_meter_enabled` | `true` | 立绘右侧 DSH 上下文占用指示器开关 |
 | 视觉模型 | `glm-4v-flash` | 屏幕内容理解（智谱免费视觉模型，见上文 LLM 表） |
 
 ## 🔐 API Key 与隐私

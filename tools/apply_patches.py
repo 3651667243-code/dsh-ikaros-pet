@@ -104,6 +104,236 @@ _P1_METHODS = """    # ---- ikaros-dsh-pet 本地适配：插件服务真实后�
 
     def _mobile_characters(self) -> list[dict[str, str]]:"""
 
+# ---------------------------------------------------------------------------
+# P9：context_meter.py 源文件（与 docs/PATCHES.md §9 一致；修改时两处同步）
+# ---------------------------------------------------------------------------
+
+_CONTEXT_METER_SOURCE = r'''# -*- coding: utf-8 -*-
+"""context_meter.py —— DSH 会话上下文占用指示器（ikaros-dsh-pet 本地适配，V1.2 布局）。
+
+悬浮光环式（gpt-5.6-sol 推荐方案）：椭圆 Angeloid 状态环悬浮在立绘头顶后上方，
+中心 (L+0.52W, T+0.07H)——椭圆光环兼进度弧，中间显示 CTX 百分比，左端嵌小羽翼；
+白→天空蓝渐变、70% 透明、1px 淡粉高光；≥80% 转蜜桃橙；4 秒呼吸微光；
+数值变化时百分比与进度弧平滑补间。
+
+数据源：plugins/dsh_watcher 插件写出的 <Sakura>/data/dsh_context_state.json
+（与 DSH Web UI 的 context occupancy 同口径：提示侧 token / contextWindow）。
+"""
+from __future__ import annotations
+
+import json
+import math
+import time
+from pathlib import Path
+
+from PySide6.QtCore import QRectF, Qt, QTimer  # noqa: F401  (QTimer 供宿主引用)
+from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtWidgets import QWidget
+
+# 状态文件 / 徽章素材（相对 Sakura 根）
+CTX_STATE_REL = Path("data") / "dsh_context_state.json"
+BADGE_REL = Path("characters") / "ikaros" / "ui" / "dsh_ctx_badge.png"
+
+# 天降之物/伊卡洛斯配色：天空蓝主色 + 白 + 淡粉点缀 + 高占用蜜桃橙
+_SKY = QColor(122, 195, 224)
+_SKY_DEEP = QColor(74, 156, 199)
+_WHITE = QColor(255, 255, 255)
+_PINK = QColor(255, 198, 214)       # 淡粉（高光）
+_WARN = QColor(255, 178, 102)       # 蜜桃橙（≥80%）
+_TEXT_SHADOW = QColor(36, 96, 132, 170)
+
+# 数据超过该秒数未更新视为过期（显示 --）
+_STALE_AFTER_SECONDS = 120.0
+# 呼吸发光周期（秒）
+_BREATH_PERIOD = 4.0
+
+
+class ContextMeter(QWidget):
+    """头顶悬浮光环式上下文占用徽章：椭圆光环兼进度弧 + CTX 百分比 + 小羽翼，点击穿透。"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+        self.setToolTip("DSH 会话上下文占用（等待数据……）")
+        self._root = Path(__file__).resolve().parents[2]  # app/ui/ → Sakura 根
+        self._percent: int | None = None
+        self._used_tokens: int | None = None
+        self._window: int | None = None
+        self._session: str = ""
+        self._updated_at: float = 0.0
+        self._badge: QPixmap | None = None
+        self._load_badge()
+        # 数值平滑补间：显示值向目标值靠近，百分比与进度弧一起动
+        self._shown = 0.0
+        self._target = 0
+        self._anim = QTimer(self)
+        self._anim.setInterval(30)
+        self._anim.timeout.connect(self._tick_anim)
+        self.setFixedSize(96, 30)
+
+    # ---- 数据 ----
+
+    def _load_badge(self) -> None:
+        try:
+            path = self._root / BADGE_REL
+            if path.is_file():
+                pixmap = QPixmap(str(path))
+                if not pixmap.isNull():
+                    self._badge = pixmap
+        except Exception:  # noqa: BLE001
+            self._badge = None
+
+    def refresh(self) -> None:
+        """读取插件写出的状态文件（UI 线程，由宿主 QTimer 驱动）。"""
+        try:
+            path = self._root / CTX_STATE_REL
+            if not path.is_file():
+                return
+            data = json.loads(path.read_text(encoding="utf-8"))
+            percent = data.get("percent")
+            if isinstance(percent, (int, float)):
+                self._percent = int(percent)
+                self._target = self._percent
+                if not self._anim.isActive():
+                    self._anim.start()
+            self._used_tokens = data.get("usedTokens")
+            self._window = data.get("contextWindow")
+            self._session = str(data.get("session") or "")
+            self._updated_at = float(data.get("updatedAt") or 0)
+            self._update_tooltip()
+            self.update()
+        except Exception:  # noqa: BLE001
+            pass
+
+    def has_data(self) -> bool:
+        return self._percent is not None
+
+    def _stale(self) -> bool:
+        return self._percent is None or (time.time() - self._updated_at > _STALE_AFTER_SECONDS)
+
+    def _tick_anim(self) -> None:
+        diff = self._target - self._shown
+        if abs(diff) < 0.5:
+            self._shown = float(self._target)
+            self._anim.stop()
+        else:
+            self._shown += diff * 0.22
+        self.update()
+
+    def _update_tooltip(self) -> None:
+        if self._percent is None:
+            self.setToolTip("DSH 会话上下文占用（等待数据……）")
+            return
+        used = self._used_tokens or 0
+        window = self._window or 0
+        session = f" · {self._session}" if self._session else ""
+        self.setToolTip(
+            f"DSH 上下文 {self._percent}% · {used:,}/{window:,} tokens{session}"
+        )
+
+    # ---- 绘制 ----
+
+    def paintEvent(self, event) -> None:  # noqa: N802 (Qt 命名)
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        rect = QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5)
+
+        stale = self._stale()
+        warn = (not stale) and (self._percent or 0) >= 80
+
+        # 1) 椭圆光环主体：半透明白→天空蓝渐变盘
+        ellipse = QPainterPath()
+        ellipse.addEllipse(rect)
+        gradient = QLinearGradient(rect.topLeft(), rect.bottomRight())
+        if stale:
+            gradient.setColorAt(0.0, QColor(120, 140, 150, 140))
+            gradient.setColorAt(1.0, QColor(90, 110, 122, 165))
+        else:
+            gradient.setColorAt(0.0, QColor(255, 255, 255, 150))
+            gradient.setColorAt(1.0, QColor(_SKY_DEEP.red(), _SKY_DEEP.green(), _SKY_DEEP.blue(), 200))
+        painter.setBrush(gradient)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.drawPath(ellipse)
+
+        # 2) 进度轨道环 + 进度弧（从 12 点方向顺时针，环宽 3px）
+        ring_rect = rect.adjusted(2.0, 2.0, -2.0, -2.0)
+        if not stale:
+            # 轨道：白 40% 细环
+            painter.setPen(QPen(QColor(255, 255, 255, 70), 2.0))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(ring_rect)
+            # 进度弧：12 点 = 90°，顺时针 span = percent/100 * 360°
+            shown = min(100.0, max(0.0, self._shown))
+            span = round(-shown / 100.0 * 360.0 * 16.0)  # 负值=顺时针（Qt 逆时针为正）
+            painter.setPen(QPen(QColor(_WARN if warn else _WHITE), 2.0,
+                                Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap))
+            painter.drawArc(ring_rect, 90 * 16, span)
+
+        # 3) 左端 12px 小羽翼
+        emblem = QRectF(rect.left() + 8.0, rect.top() + rect.height() / 2.0 - 6.0, 12.0, 12.0)
+        if self._badge is not None:
+            painter.setOpacity(0.95 if not stale else 0.55)
+            painter.drawPixmap(emblem.toRect(), self._badge)
+            painter.setOpacity(1.0)
+        else:
+            self._draw_wing_glyph(painter, emblem, stale)
+
+        # 4) 文字：CTX 小标签 + 大百分比（平滑补间）
+        font_small = QFont()
+        font_small.setPixelSize(7)
+        font_small.setBold(True)
+        font_big = QFont()
+        font_big.setPixelSize(15)
+        font_big.setBold(True)
+
+        text_x = rect.left() + 26.0
+        text_w = rect.right() - text_x - 4.0
+        if stale:
+            percent_text = "--%"
+        else:
+            percent_text = f"{round(self._shown)}%"
+
+        painter.setFont(font_small)
+        painter.setPen(QColor(255, 255, 255, 215 if not stale else 140))
+        painter.drawText(QRectF(text_x, rect.top() + 3.0, text_w, 8.0),
+                         Qt.AlignmentFlag.AlignLeft, "CTX")
+
+        painter.setFont(font_big)
+        painter.setPen(_TEXT_SHADOW)
+        painter.drawText(QRectF(text_x + 0.7, rect.top() + 9.0 + 0.7, text_w, 17.0),
+                         Qt.AlignmentFlag.AlignLeft, percent_text)
+        painter.setPen(QColor(255, 255, 255, 255 if not stale else 150))
+        painter.drawText(QRectF(text_x, rect.top() + 9.0, text_w, 17.0),
+                         Qt.AlignmentFlag.AlignLeft, percent_text)
+
+        # 5) 1px 淡粉高光（顶部弧线，4s 呼吸微光）
+        glow = 0.5 + 0.5 * math.sin(2.0 * math.pi * (time.time() % _BREATH_PERIOD) / _BREATH_PERIOD)
+        highlight = QColor(_PINK.red(), _PINK.green(), _PINK.blue(),
+                           int(110 + 60 * glow) if not stale else 45)
+        painter.setPen(QPen(highlight, 1.2))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        top_arc = rect.adjusted(3.0, 2.0, -3.0, 0.0)
+        painter.drawArc(top_arc, 200 * 16, 140 * 16)
+        painter.end()
+
+    def _draw_wing_glyph(self, painter: QPainter, rect: QRectF, stale: bool) -> None:
+        """程序化小天使翼（素材缺失时的回退装饰）。"""
+        color = QColor(255, 255, 255, 200 if not stale else 120)
+        painter.setPen(QPen(color, 1.3))
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        left = QPainterPath()
+        left.moveTo(rect.left() + 1, rect.center().y() + 1)
+        left.cubicTo(rect.left(), rect.top() + 1, rect.center().x() - 1, rect.top(), rect.center().x(), rect.center().y() - 1)
+        left.cubicTo(rect.center().x() + 2, rect.top() + 3, rect.left() + 2, rect.top() + 5, rect.left() + 4, rect.center().y() + 1)
+        painter.drawPath(left)
+        right = QPainterPath()
+        right.moveTo(rect.center().x() + 1, rect.center().y() + 1)
+        right.cubicTo(rect.center().x() + 2, rect.top(), rect.right() - 1, rect.top() + 1, rect.right(), rect.center().y() - 2)
+        right.cubicTo(rect.right() - 2, rect.top() + 4, rect.center().x() + 3, rect.top() + 6, rect.center().x() + 2, rect.center().y() + 1)
+        painter.drawPath(right)
+'''
+
 PATCHES = [
     {
         "id": "P1-plugin-backends",
@@ -466,10 +696,336 @@ PATCHES = [
         "marker": REF_AUDIO_REL.name,
         "steps": [],
     },
+    {
+        "id": "P9-context-meter-file",
+        "file": "app/ui/context_meter.py",
+        "marker": "class ContextMeter",
+        "create_content": _CONTEXT_METER_SOURCE,
+        "steps": [],
+    },
+    {
+        "id": "P10-context-meter-wiring",
+        "file": "app/ui/pet_window.py",
+        "marker": "context_meter",
+        "steps": [
+            (
+                "from app.ui.portrait_controller import (",
+                "from app.ui.context_meter import ContextMeter\n"
+                "from app.ui.portrait_controller import (",
+            ),
+            (
+                "        self.name_label = QLabel(self.character_profile.display_name, self.bubble)",
+                "        # ikaros-dsh-pet 本地适配：DSH 上下文占用指示器（头顶悬浮光环，2s 轮询）\n"
+                "        self.context_meter_enabled = self._load_context_meter_enabled()\n"
+                "        self.context_meter = ContextMeter(self)\n"
+                "        self.context_meter.hide()\n"
+                "        self.context_meter_timer = QTimer(self)\n"
+                "        self.context_meter_timer.setInterval(2000)\n"
+                "        self.context_meter_timer.timeout.connect(self._refresh_context_meter)\n"
+                "        self.context_meter_timer.start()\n"
+                "        self.name_label = QLabel(self.character_profile.display_name, self.bubble)",
+            ),
+            (
+                "        ix, iy, iw, ih = layout.input_rect\n"
+                "        self.input_card.setGeometry(ix, iy, iw, ih)",
+                "        ix, iy, iw, ih = layout.input_rect\n"
+                "        self.input_card.setGeometry(ix, iy, iw, ih)\n"
+                "        # ikaros-dsh-pet 本地适配：指示器为悬浮光环式——立绘头顶后上方\n"
+                "        # （中心 L+0.52W, T+0.07H，gpt-5.6-sol 推荐布局），窗口右/上缘不足时收进窗口\n"
+                "        meter = getattr(self, \"context_meter\", None)\n"
+                "        if meter is not None:\n"
+                "            mw, mh = meter.width(), meter.height()\n"
+                "            meter.setGeometry(\n"
+                "                min(px + round(0.52 * pw) - mw // 2, self.width() - mw - 6),\n"
+                "                max(0, py + round(0.07 * ph) - mh // 2),\n"
+                "                mw, mh,\n"
+                "            )\n"
+                "            meter.setVisible(bool(getattr(self, \"context_meter_enabled\", True)))",
+            ),
+            (
+                "    def _load_always_on_top_enabled(self) -> bool:",
+                "    def _load_context_meter_enabled(self) -> bool:\n"
+                '        """从 system_config.yaml 加载 DSH 上下文占用指示器开关，默认开启。"""\n'
+                "        system_values = self._load_system_config_values(\"ui\")\n"
+                '        if "context_meter_enabled" in system_values:\n'
+                '            return _parse_bool(system_values.get("context_meter_enabled"), default=True)\n'
+                "        return True\n"
+                "\n"
+                "    def _refresh_context_meter(self) -> None:\n"
+                '        """QTimer 驱动：刷新立绘右侧的 DSH 上下文占用指示器。"""\n'
+                "        try:\n"
+                '            if not getattr(self, "context_meter_enabled", True):\n'
+                "                return\n"
+                '            meter = getattr(self, "context_meter", None)\n'
+                "            if meter is None:\n"
+                "                return\n"
+                "            meter.refresh()\n"
+                "        except Exception:  # noqa: BLE001\n"
+                "            pass\n"
+                "\n"
+                "    def _load_always_on_top_enabled(self) -> bool:",
+            ),
+        ],
+    },
+    {
+        "id": "P11a-theme-anime",
+        "file": "app/ui/theme.py",
+        "marker": "qlineargradient(x1:0, y1:0, x2:0, y2:1",
+        "steps": [
+            (
+                "#speechBubble {{\n"
+                "    background: {rgba(theme.bubble_background_color, 238)};\n"
+                "    border: 1px solid {rgba(theme.border_color, 170)};\n"
+                "    border-radius: 20px;\n"
+                "}}\n"
+                "#speakerName {{\n"
+                "    color: {theme.primary_color};\n"
+                "    font-size: {name_font_size}px;\n"
+                "    font-weight: 700;\n"
+                "}}\n"
+                "#speechText {{\n"
+                "    color: {theme.text_color};\n"
+                "    font-size: {speech_font_size}px;\n"
+                "    line-height: 1.35;\n"
+                "}}",
+                "#speechBubble {{\n"
+                "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+                "        stop:0 rgba(255,255,255,242),\n"
+                "        stop:1 rgba(229,245,255,238));\n"
+                "    border: 1px solid rgba(169, 217, 243, 210);\n"
+                "    border-radius: 18px;\n"
+                "}}\n"
+                "#speakerName {{\n"
+                "    color: {theme.primary_color};\n"
+                "    font-family: \"LXGW WenKai\";\n"
+                "    font-size: {name_font_size}px;\n"
+                "    font-weight: 700;\n"
+                "}}\n"
+                "#speechText {{\n"
+                "    color: {theme.text_color};\n"
+                "    font-family: \"LXGW WenKai\";\n"
+                "    font-size: {speech_font_size}px;\n"
+                "    line-height: 1.35;\n"
+                "}}",
+            ),
+            (
+                "#inputBar[visualEffectMode=\"solid\"] {{\n"
+                "    background: {rgba(theme.bubble_background_color, 238)};\n"
+                "    border: 1px solid {rgba(theme.border_color, 170)};\n"
+                "    border-radius: 22px;\n"
+                "}}\n"
+                "#petInput {{\n"
+                "    background: {rgba(theme.input_background_color, 55)};\n"
+                "    border: 1px solid rgba(255, 255, 255, 218);\n"
+                "    border-radius: 19px;\n"
+                "    color: {mix(theme.text_color, \"#000000\", 0.08)};\n"
+                "    font-size: {input_font_size}px;\n"
+                "    font-weight: 700;\n"
+                "    padding: 3px 16px;\n"
+                "    selection-background-color: {rgba(theme.primary_color, 92)};\n"
+                "}}",
+                "#inputBar[visualEffectMode=\"solid\"] {{\n"
+                "    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,\n"
+                "        stop:0 rgba(255,255,255,232),\n"
+                "        stop:1 rgba(238,249,255,228));\n"
+                "    border: 1px solid rgba(199, 223, 240, 210);\n"
+                "    border-radius: 16px;\n"
+                "}}\n"
+                "#petInput {{\n"
+                "    background: rgba(255, 255, 255, 55);\n"
+                "    border: 1px solid rgba(255, 255, 255, 218);\n"
+                "    border-radius: 16px;\n"
+                "    color: {mix(theme.text_color, \"#000000\", 0.08)};\n"
+                "    font-family: \"LXGW WenKai\";\n"
+                "    font-size: {input_font_size}px;\n"
+                "    font-weight: 700;\n"
+                "    padding: 3px 16px;\n"
+                "    selection-background-color: {rgba(theme.primary_color, 92)};\n"
+                "}}",
+            ),
+            (
+                "#sendButton, #screenshotButton {{\n"
+                "    background: {rgba(theme.primary_color, 232)};\n"
+                "    border: 1px solid rgba(255, 255, 255, 150);\n"
+                "    border-radius: 19px;\n"
+                "    color: white;\n"
+                "    font-size: {button_font_size}px;\n"
+                "    font-weight: 800;\n"
+                "    padding: 4px 12px;\n"
+                "}}\n"
+                "#sendButton {{\n"
+                "    border-radius: 16px;\n"
+                "    min-width: 50px;\n"
+                "    padding: 4px 10px;\n"
+                "}}",
+                "#sendButton, #screenshotButton {{\n"
+                "    background: rgba(221, 242, 255, 235);\n"
+                "    border: 1px solid rgba(169, 217, 243, 170);\n"
+                "    border-radius: 12px;\n"
+                "    color: rgba(84, 134, 168, 235);\n"
+                "    font-family: \"LXGW WenKai\";\n"
+                "    font-size: {button_font_size}px;\n"
+                "    font-weight: 800;\n"
+                "    padding: 4px 12px;\n"
+                "}}\n"
+                "#sendButton {{\n"
+                "    border-radius: 12px;\n"
+                "    min-width: 50px;\n"
+                "    padding: 4px 10px;\n"
+                "}}",
+            ),
+            (
+                "#sendButton:hover, #screenshotButton:hover {{\n"
+                "    background: {rgba(theme.primary_hover_color, 242)};\n"
+                "    border: 1px solid {rgba(mix(theme.panel_background_color, \"#ffffff\", 0.35), 190)};\n"
+                "}}",
+                "#sendButton:hover, #screenshotButton:hover {{\n"
+                "    background: rgba(248, 221, 234, 242);\n"
+                "    border: 1px solid rgba(238, 172, 200, 170);\n"
+                "}}",
+            ),
+            (
+                "#sendButton:disabled, #screenshotButton:disabled {{\n"
+                "    background: {rgba(theme.primary_color, 118)};\n"
+                "    border: 1px solid {rgba(theme.border_color, 92)};\n"
+                "    color: rgba(255, 255, 255, 178);\n"
+                "}}",
+                "#sendButton:disabled, #screenshotButton:disabled {{\n"
+                "    background: rgba(221, 242, 255, 120);\n"
+                "    border: 1px solid rgba(169, 217, 243, 90);\n"
+                "    color: rgba(84, 134, 168, 150);\n"
+                "}}",
+            ),
+            (
+                "#sendButton[replyWaiting=\"true\"] {{\n"
+                "    background: {rgba(theme.primary_color, 146)};\n"
+                "    border: 1px solid {rgba(theme.primary_color, 174)};\n"
+                "    color: rgba(255, 255, 255, 218);\n"
+                "}}\n"
+                "#sendButton[replyWaiting=\"true\"]:disabled {{\n"
+                "    background: {rgba(theme.primary_color, 146)};\n"
+                "    border: 1px solid {rgba(theme.primary_color, 174)};\n"
+                "    color: rgba(255, 255, 255, 218);\n"
+                "}}",
+                "#sendButton[replyWaiting=\"true\"] {{\n"
+                "    background: rgba(169, 217, 243, 150);\n"
+                "    border: 1px solid rgba(169, 217, 243, 180);\n"
+                "    color: rgba(84, 134, 168, 220);\n"
+                "}}\n"
+                "#sendButton[replyWaiting=\"true\"]:disabled {{\n"
+                "    background: rgba(169, 217, 243, 150);\n"
+                "    border: 1px solid rgba(169, 217, 243, 180);\n"
+                "    color: rgba(84, 134, 168, 220);\n"
+                "}}",
+            ),
+            (
+                "#ttsErrorText {{\n"
+                "    color: #9f314e;\n"
+                "    font-size: 12px;\n"
+                "    font-weight: 700;\n"
+                "    line-height: 1.25;\n"
+                "}}",
+                "#ttsErrorText {{\n"
+                "    color: #9f314e;\n"
+                "    font-size: 12px;\n"
+                "    font-weight: 700;\n"
+                "    line-height: 1.25;\n"
+                "}}\n"
+                "#bubbleWingBadge {{\n"
+                "    background: transparent;\n"
+                "    border: none;\n"
+                "}}\n"
+                "#bubbleTail {{\n"
+                "    background: transparent;\n"
+                "    border-left: 6px solid transparent;\n"
+                "    border-right: 6px solid transparent;\n"
+                "    border-top: 10px solid rgba(229, 245, 255, 238);\n"
+                "}}",
+            ),
+        ],
+    },
+    {
+        "id": "P11b-pet-anime-decor",
+        "file": "app/ui/pet_window.py",
+        "marker": "bubbleWingBadge",
+        "steps": [
+            (
+                "        # ikaros-dsh-pet 本地适配：DSH 上下文占用指示器（头顶悬浮光环，2s 轮询）",
+                "        # ikaros-dsh-pet 本地适配：动漫字体（霞鹜文楷，data/fonts/，OFL；缺失时回退系统字体）。\n"
+                "        # 须在 QApplication 创建后加载（模块级加载会导致 Qt 原生崩溃 0xC0000005）。\n"
+                "        try:\n"
+                "            _anime_font = Path(__file__).resolve().parents[2] / \"data\" / \"fonts\" / \"LXGWWenKai-Regular.ttf\"\n"
+                "            if _anime_font.is_file():\n"
+                "                from PySide6.QtGui import QFontDatabase\n"
+                "\n"
+                "                QFontDatabase.addApplicationFont(str(_anime_font))\n"
+                "        except Exception:  # noqa: BLE001\n"
+                "            pass\n"
+                "\n"
+                "        # ikaros-dsh-pet 本地适配：DSH 上下文占用指示器（头顶悬浮光环，2s 轮询）",
+            ),
+            (
+                "        bubble_layout = QVBoxLayout()\n"
+                "        bubble_layout.setContentsMargins(22, 12, 18, 14)\n"
+                "        bubble_layout.setSpacing(0)\n"
+                "        bubble_layout.addLayout(bubble_body_layout, 1)\n"
+                "        self.bubble.setLayout(bubble_layout)",
+                "        bubble_layout = QVBoxLayout()\n"
+                "        bubble_layout.setContentsMargins(40, 12, 18, 14)\n"
+                "        bubble_layout.setSpacing(0)\n"
+                "        bubble_layout.addLayout(bubble_body_layout, 1)\n"
+                "        self.bubble.setLayout(bubble_layout)\n"
+                "        # ikaros-dsh-pet 本地适配：动漫对话框装饰——左上羽翼角标 + 底部小尾角\n"
+                "        self.bubble_wing_badge = QLabel(self.bubble)\n"
+                "        self.bubble_wing_badge.setObjectName(\"bubbleWingBadge\")\n"
+                "        try:\n"
+                "            _wing_path = Path(__file__).resolve().parents[2] / \"characters\" / \"ikaros\" / \"ui\" / \"dsh_ctx_badge.png\"\n"
+                "            if _wing_path.is_file():\n"
+                "                _wing_pm = QPixmap(str(_wing_path))\n"
+                "                if not _wing_pm.isNull():\n"
+                "                    self.bubble_wing_badge.setPixmap(\n"
+                "                        _wing_pm.scaled(20, 20, Qt.AspectRatioMode.KeepAspectRatio,\n"
+                "                                        Qt.TransformationMode.SmoothTransformation)\n"
+                "                    )\n"
+                "        except Exception:  # noqa: BLE001\n"
+                "            pass\n"
+                "        self.bubble_wing_badge.setGeometry(12, 8, 20, 20)\n"
+                "        self.bubble_wing_badge.show()\n"
+                "        self.bubble_tail = QLabel(self.bubble)\n"
+                "        self.bubble_tail.setObjectName(\"bubbleTail\")\n"
+                "        self.bubble_tail.setGeometry(0, 0, 12, 10)\n"
+                "        self.bubble_tail.show()",
+            ),
+            (
+                '            meter.setVisible(bool(getattr(self, "context_meter_enabled", True)))',
+                '            meter.setVisible(bool(getattr(self, "context_meter_enabled", True)))\n'
+                "        # ikaros-dsh-pet 本地适配：气泡尾角跟随底边中央（气泡高度自适应时同步）\n"
+                "        tail = getattr(self, \"bubble_tail\", None)\n"
+                "        if tail is not None:\n"
+                "            tail.move(bw // 2 - 6, bh - 10)",
+            ),
+        ],
+    },
 ]
 
 
 def _apply_patch(patch: dict, sakura_dir: Path, dry_run: bool) -> str:
+    if patch.get("create_content") is not None:
+        # 创建类补丁（如 P10 的 context_meter.py）：文件存在且含 marker 视为已应用
+        target = sakura_dir / patch["file"]
+        if target.exists():
+            if patch["marker"] in target.read_text(encoding="utf-8"):
+                return "已存在"
+            return "失败：文件已存在但无 marker（内容不一致，请人工核对）"
+        if dry_run:
+            return "待创建（dry-run）"
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(patch["create_content"], encoding="utf-8", newline="\n")
+        except OSError as exc:
+            return f"失败：{exc}"
+        return "已创建"
+
     if patch["file"] is None:
         # P7：占位参考音频
         target = sakura_dir / REF_AUDIO_REL

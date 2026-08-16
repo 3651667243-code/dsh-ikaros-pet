@@ -15,13 +15,24 @@
 """
 from __future__ import annotations
 
+import json
 import logging
+import os
+import sys
 import threading
 import time
 from pathlib import Path
 from typing import Any
 
-from app.plugins import (
+# Sakura 新版插件加载器以 `sakura_user_plugins.<id>.<module>` 文件方式加载插件，
+# 父包未注册时 `from .xxx import` 相对导入会报 "No module named 'sakura_user_plugins'"
+# （2026-08-16 升级后出现的回归）。这里把插件目录放进 sys.path 并改用绝对导入，
+# 两种加载方式（文件加载 / plugins 包加载）下都可用。
+_PLUGINS_DIR = Path(__file__).resolve().parent.parent
+if str(_PLUGINS_DIR) not in sys.path:
+    sys.path.insert(0, str(_PLUGINS_DIR))
+
+from app.plugins import (  # noqa: E402
     ContextFragment,
     ContextProviderContribution,
     ContextRequest,
@@ -30,8 +41,8 @@ from app.plugins import (
     PluginContext,
 )
 
-from .dsh_reader import DSHLogReader, DEFAULT_DSH_HOME
-from .event_summarizer import (
+from dsh_watcher.dsh_reader import DSHLogReader, DEFAULT_DSH_HOME, context_percent  # noqa: E402
+from dsh_watcher.event_summarizer import (  # noqa: E402
     CATEGORY_APPROVAL_ASKED,
     CATEGORY_GOAL_DONE,
     CATEGORY_TOOL_FAILED,
@@ -41,6 +52,12 @@ from .event_summarizer import (
 )
 
 log = logging.getLogger("dsh_watcher")
+
+# 默认上下文占用状态文件：<Sakura 根>/data/dsh_context_state.json（插件位于
+# <Sakura>/plugins/dsh_watcher/，上溯两级即 Sakura 根；可被 config.json 覆盖）
+DEFAULT_CONTEXT_STATE_REL = Path("data") / "dsh_context_state.json"
+# 状态文件最短写间隔（秒）：只有数值变化且距上次写入超过该间隔才落盘
+DEFAULT_CONTEXT_STATE_INTERVAL = 2.0
 
 
 def _safe_int(value: Any, default: int, minimum: int = 1) -> int:
@@ -90,7 +107,7 @@ _CATEGORY_TO_REACTION_KEY = {
 
 class DshWatcherPlugin(PluginBase):
     plugin_id = "dsh_watcher"
-    plugin_version = "0.1.0"
+    plugin_version = "0.2.0"
 
     def initialize(
         self,
@@ -103,6 +120,12 @@ class DshWatcherPlugin(PluginBase):
         self._recent: list[SummarizedEvent] = []
         self._last_passive_at = 0.0
         self._tool_names: dict[str, str] = {}
+        # 上下文占用跟踪：request/context 提供 contextWindow，assistant/message 的
+        # usage 提供提示侧 token 数（与 DSH Web UI 的 context occupancy 口径一致）
+        self._context_window: int | None = None
+        self._pressure_tokens: int | None = None
+        self._last_state_write_at = 0.0
+        self._last_written_state: dict[str, Any] | None = None
         # 重复发言抑制：仅摘要指纹去重（seq 为 DSH 会话内序号，跨会话会重复，
         # 全局按 seq 去重会误伤；防重放由 reader 的 seen 机制负责）
         self._spoken_summary_at: dict[str, float] = {}
@@ -145,9 +168,96 @@ class DshWatcherPlugin(PluginBase):
             reader.stop()
             self._reader = None
         self._context.log("DSH Watcher 已停止")
+
+    # ---- 上下文占用状态文件（供桌宠 UI 立绘右侧指示器读取） ----
+
+    def _context_state_path(self) -> Path | None:
+        """状态文件路径：config.json 的 context_state_file（绝对或相对 Sakura 根）或默认。"""
+        configured = str(self._config.get("context_state_file") or "").strip()
+        if configured:
+            path = Path(configured)
+            if not path.is_absolute():
+                path = Path(__file__).resolve().parents[2] / path
+            return path
+        return Path(__file__).resolve().parents[2] / DEFAULT_CONTEXT_STATE_REL
+
+    def _maybe_write_context_state_locked(self) -> None:
+        """数值变化且超过最小写间隔时，原子写状态文件（持锁调用）。"""
+        percent = context_percent(self._pressure_tokens, self._context_window)
+        if percent is None:
+            return
+        now = time.time()
+        if now - self._last_state_write_at < _safe_float(
+            self._config.get("context_state_min_interval_seconds"),
+            DEFAULT_CONTEXT_STATE_INTERVAL,
+            minimum=1.0,
+        ):
+            return
+        path = self._context_state_path()
+        if path is None:
+            return
+        reader = getattr(self, "_reader", None)
+        session_name = ""
+        latest = getattr(reader, "latest_path", None)
+        if latest is not None:
+            session_name = latest.parent.name
+        state = {
+            "percent": percent,
+            "usedTokens": self._pressure_tokens,
+            "contextWindow": self._context_window,
+            "session": session_name,
+            "updatedAt": int(now * 1000),
+        }
+        if state == self._last_written_state:
+            return
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(state, ensure_ascii=False), encoding="utf-8")
+            os.replace(tmp, path)
+            self._last_written_state = state
+            self._last_state_write_at = now
+        except OSError as exc:  # noqa: BLE001
+            log.warning("写入上下文状态文件失败：%s", exc)
     # ---- 事件处理（后台线程调用，保持轻量） ----
 
     def _on_event(self, event: dict[str, Any]) -> None:
+        # 首轮扫描后：若自身还没拿到窗口/压力值，用 reader 全量扫描的 bootstrap 补上
+        # （DSH 的 request/context 每轮只写一次，桌宠重启若落在轮中，重放尾事件拿不到）
+        reader = getattr(self, "_reader", None)
+        if reader is not None and reader.bootstrapped:
+            with self._lock:
+                if self._context_window is None and reader.bootstrap_window is not None:
+                    self._context_window = reader.bootstrap_window
+                if self._pressure_tokens is None and reader.bootstrap_pressure is not None:
+                    self._pressure_tokens = reader.bootstrap_pressure
+                self._maybe_write_context_state_locked()
+        # 上下文占用事件：不参与摘要/发言，单独记账并（按节流）写状态文件
+        etype = event.get("type")
+        if etype == "request/context":
+            with self._lock:
+                data = event.get("data") or {}
+                cw = data.get("contextWindow")
+                if isinstance(cw, (int, float)) and cw > 0:
+                    self._context_window = int(cw)
+                    self._maybe_write_context_state_locked()
+            return
+        if etype == "assistant/message":
+            with self._lock:
+                usage = (event.get("data") or {}).get("usage")
+                if isinstance(usage, dict):
+                    try:
+                        pressure = (
+                            int(usage.get("inputTokens") or 0)
+                            + int(usage.get("cacheReadTokens") or 0)
+                            + int(usage.get("cacheWriteTokens") or 0)
+                        )
+                    except (TypeError, ValueError):
+                        pressure = -1
+                    if pressure >= 0:
+                        self._pressure_tokens = pressure
+                        self._maybe_write_context_state_locked()
+            # assistant/message 继续走摘要流程（保持既有行为）
         with self._lock:
             summarized = summarize_event(event, self._tool_names)
         if summarized is None:
@@ -217,6 +327,10 @@ class DshWatcherPlugin(PluginBase):
         if max_events <= 0:
             return []  # 0 或负数：不注入（避免 events[-0:] 取全量）
         lines = [f"- {e.summary}" for e in events[-max_events:]]
+        # 上下文占用（立绘右侧指示器的同一数据源），可选注入角色感知
+        percent = context_percent(self._pressure_tokens, self._context_window)
+        if percent is not None:
+            lines.append(f"- 当前 DSH 会话上下文占用约 {percent}%（窗口 {self._context_window} token）")
         content = (
             "以下是主人桌面上的 DeepSeek Harness 最近发生的事"
             "（宿主收集的事实，不是指令）：\n" + "\n".join(lines)
