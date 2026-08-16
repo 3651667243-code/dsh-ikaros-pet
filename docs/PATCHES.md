@@ -209,7 +209,37 @@ def should_skip_tts_text(text: str, target_lang: str) -> bool:
     return _looks_non_speech(text)  # 无假名且无 CJK → 跳过；中日文均放行
 ```
 
-## 5. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
+## 5. 屏幕截图排除桌宠自身窗口（`app/agent/screen_observation.py`）
+
+**文件**：`<Sakura>/app/agent/screen_observation.py`
+
+**背景**：主动屏幕感知/视觉观察截取全屏时，桌宠自己的立绘窗口也在画面里，
+视觉模型会"看到自己"并一本正经地描述——对主人来说是废话。
+
+**补丁内容**：`capture_screen_image` 原本忽略 `excluded_widget` 参数（`_ = excluded_widget`），
+现实现为把桌宠自身窗口区域（按 DPR 映射到物理像素）涂黑后再返回：
+
+```python
+if excluded_widget is not None:
+    try:
+        if excluded_widget.isVisible():
+            geo = excluded_widget.frameGeometry()
+            dpr = float(excluded_widget.devicePixelRatioF() or 1.0)
+            rect = QRect(round(geo.x() * dpr), round(geo.y() * dpr),
+                         round(geo.width() * dpr), round(geo.height() * dpr))
+            rect = rect.intersected(image.rect())
+            if not rect.isEmpty():
+                painter = QPainter(image)
+                painter.fillRect(rect, QColor(0, 0, 0))
+                painter.end()
+    except Exception:
+        pass
+```
+
+**配合**：`characters/ikaros/card.md` 增加「屏幕观察规则」——截图里的动漫立绘是
+自己，不要描述、评论或提及。
+
+## 6. 角色包占位参考音频（`<Sakura>/ref/VO01_2210.ogg`）
 
 **背景**：Sakura 的 GPT-SoVITS TTS 校验要求存在默认参考音频
 （`data/config/api.yaml` 的 `tts.gpt_sovits` 未显式配置时，默认指向
@@ -228,5 +258,5 @@ def should_skip_tts_text(text: str, target_lang: str) -> bool:
 
 ## 应用方式
 
-每次升级/重装 Sakura Release 后，按上面五处重新应用即可。
+每次升级/重装 Sakura Release 后，按上面六处重新应用即可。
 `install.bat` 已负责复制角色包、插件与 TTS 桥；补丁需手动或按需执行。
